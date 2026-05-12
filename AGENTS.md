@@ -11,6 +11,7 @@ DailyFlow-Ts is an Electron, React, and TypeScript desktop app. The React render
 - `npm run dev:react`: run only the Vite renderer dev server.
 - `npm run transpile:electron`: compile Electron main/preload TypeScript using `src/electron/tsconfig.json`.
 - `npm run build`: type-check with `tsc` and build the renderer with Vite.
+- `npm run test:unit`: run Vitest unit tests under `src`.
 - `npm run dist:win`, `npm run dist:mac`, `npm run dist:linux`: create platform installers with Electron Builder.
 
 ## Coding Style & Naming Conventions
@@ -19,7 +20,7 @@ Use TypeScript with `strict` mode enabled. Follow the existing React component p
 
 ## Testing Guidelines
 
-There is no active test suite in this repo yet. When adding tests, place them near the source they cover and name them after the behavior being verified, for example `TaskPlayer.test.tsx`. Run `npm run build` before packaging changes or opening a PR.
+Use Vitest for focused unit tests near source code under `src`. Name tests after the behavior being verified, for example `scheduleUtils.test.ts`. Run `npm run build` before packaging changes or opening a PR.
 
 ## Commit & Pull Request Guidelines
 
