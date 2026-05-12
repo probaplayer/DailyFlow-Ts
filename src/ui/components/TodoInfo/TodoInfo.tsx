@@ -4,19 +4,16 @@ import { MdDeleteForever } from "react-icons/md";
 interface TodoInfoProps {
   todo: TodoFlow;
   className?: string;
-  setTrigger: (isTrigger: boolean) => void;
   onMakeTodo: (todo: TodoFlow) => void;
+  onDeleted?: () => void;
 }
 
-const TodoInfo = ({ todo, onMakeTodo, className, setTrigger }: TodoInfoProps) => {
+const TodoInfo = ({ todo, onMakeTodo, className, onDeleted }: TodoInfoProps) => {
   const { note, taskCompleted, taskTotal, actualTimeTodo, estimatedTimeTodo } = todo;
 
   const handleToDelete = async () => {
     await window.electronAPI.todoRemove(todo.id);
-    setTrigger(true);
-    setTimeout(() => {
-      setTrigger(false);
-    }, 100);
+    onDeleted?.();
   }
   
   return (

@@ -12,7 +12,6 @@ import { FaTasks } from "react-icons/fa";
 import './DefaultLayout.css';
 import { useAppDispatch } from '../store/hooks';
 import { initializeTodoFlow } from '../store/todo/todoSlice';
-import TaskCart from '../components/TaskCart/TaskCart';
 import { useAlert } from '../helpers/hooks/useAlert';
 
 interface DefaultLayoutProps {
@@ -66,7 +65,6 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
       <main className="main-content-area">
         {children}
       </main>
-      <TaskCart className='custom-display-none' />
     </div>
   );
 };

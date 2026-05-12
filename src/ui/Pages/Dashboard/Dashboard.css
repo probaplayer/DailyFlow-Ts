@@ -28,6 +28,7 @@
 
 .dashboard-calendar-main {
   min-height: 0;
+  position: relative;
 }
 
 .dashboard-weekdays,
@@ -117,36 +118,66 @@
   font-size: 0.9rem;
 }
 
-.dashboard-scheduled-item,
-.dashboard-unscheduled-item {
+.dashboard-scheduled-item {
   margin-top: 8px;
 }
 
-.dashboard-unscheduled {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  min-height: 0;
-  max-height: 230px;
+.dashboard-calendar-shell {
+  position: relative;
 }
 
-.dashboard-unscheduled-column {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.dashboard-unscheduled-list {
-  max-height: 180px;
+.dashboard-day-menu {
+  position: fixed;
+  max-width: 320px;
+  max-height: 60vh;
   overflow-y: auto;
 }
 
+.dashboard-day-menu-title,
+.dashboard-day-menu-section {
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+}
+
+.dashboard-day-menu-title {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-day-menu-section {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding-bottom: 0.35rem;
+}
+
+.dashboard-menu-entry {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.dashboard-menu-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.dashboard-menu-empty {
+  opacity: 0.7;
+}
+
 @media (max-width: 900px) {
-  .dashboard-calendar-layout,
-  .dashboard-unscheduled {
+  .dashboard-calendar-layout {
     grid-template-columns: 1fr;
   }
 
   .dashboard-day-panel {
     max-height: 280px;
+  }
+
+  .dashboard-day-menu {
+    max-width: calc(100vw - 32px);
   }
 }

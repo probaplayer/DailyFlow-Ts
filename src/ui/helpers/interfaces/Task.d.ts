@@ -16,9 +16,3 @@ interface SubTask{
   title: string;
   completed: boolean;
 }
-
-interface TaskCart {
-  tasks: { [id: string]: Task };
-  taskIds: string[];
-  taskIdsInCart?: string[];
-}

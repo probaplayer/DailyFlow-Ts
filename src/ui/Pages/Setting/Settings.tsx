@@ -1,7 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
 import { useAlert } from '~/ui/helpers/hooks/useAlert';
-import { useAppDispatch } from '~/ui/store/hooks';
-import { removeAllCartTasks } from '~/ui/store/task/taskCartSlice';
 import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { getPageSize } from '~/shared/util.page';
 import { PageType } from '~/enums/PageType.enum';
@@ -11,7 +9,6 @@ import { ThemeContext } from '~/ui/App';
 
 
 const Settings = () => {
-  const dispatch = useAppDispatch();
   const { toggleTheme } = useContext(ThemeContext);
   const { success } = useAlert(); 
   const [settings, setSettings] = useState<AppSettings>({
@@ -121,7 +118,6 @@ const Settings = () => {
       });
 
       setShowDeleteModal(false);
-      dispatch(removeAllCartTasks());
       
       const soundPlayer = SoundPlayer.getInstance();
       soundPlayer.setSoundEnabled(true);

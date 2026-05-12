@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './Dashboard.css';
 import { getPageSize } from '~/shared/util.page';
 import { PageType } from '~/enums/PageType.enum';
@@ -21,12 +21,12 @@ const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: nul
 const Dashboard = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const dayMenuRef = useRef<HTMLDivElement | null>(null);
   const [todos, setTodos] = useState<TodoFlow[]>([]);
   const [standaloneTasks, setStandaloneTasks] = useState<Task[]>([]);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
-  const [todoKeySearch, setTodoKeySearch] = useState('');
-  const [taskKeySearch, setTaskKeySearch] = useState('');
+  const [dayMenu, setDayMenu] = useState<{ dateKey: string; top: number; left: number } | null>(null);
 
   const fetchScheduleData = async () => {
     try {
@@ -65,23 +65,18 @@ const Dashboard = () => {
   );
   const selectedItems = groupedItems[selectedDateKey] || { todos: [], tasks: [] };
 
-  const filteredUnscheduledTodos = groupedItems.unscheduled.todos.filter((todo) =>
-    todo.note.toLowerCase().includes(todoKeySearch.toLowerCase())
-  );
-  const filteredUnscheduledTasks = groupedItems.unscheduled.tasks.filter((task) =>
-    task.title.toLowerCase().includes(taskKeySearch.toLowerCase())
-  );
-
   const scheduleTodo = async (todo: TodoFlow, scheduledDate?: string) => {
     const updated = withoutRuntimeTimer({ ...todo, scheduledDate, lastNotifiedDate: undefined });
     await window.electronAPI.todoUpdate(todo.id, updated);
     setTodos((prev) => prev.map((item) => (item.id === todo.id ? updated : item)));
+    setDayMenu(null);
   };
 
   const scheduleTask = async (task: Task, scheduledDate?: string) => {
     const updated = { ...task, scheduledDate, lastNotifiedDate: undefined };
     await window.electronAPI.taskUpdate(task.id, updated);
     setStandaloneTasks((prev) => prev.map((item) => (item.id === task.id ? updated : item)));
+    setDayMenu(null);
   };
 
   const openTodo = (todo: TodoFlow) => {
@@ -95,6 +90,18 @@ const Dashboard = () => {
     dispatch(setTodo(todo));
     navigate('/todoflow');
   };
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (dayMenuRef.current && dayMenuRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setDayMenu(null);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
 
   useEffect(() => {
     const notifyDueItems = async () => {
@@ -145,6 +152,7 @@ const Dashboard = () => {
 
       <div className="dashboard-calendar-layout">
         <section className="dashboard-calendar-main">
+          <div className="dashboard-calendar-shell">
           <div className="dashboard-weekdays">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day}>{day}</div>
@@ -159,7 +167,16 @@ const Dashboard = () => {
                   className={`dashboard-day ${day.isCurrentMonth ? '' : 'muted'} ${day.isToday ? 'today' : ''} ${
                     selectedDateKey === day.dateKey ? 'selected' : ''
                   }`}
-                  onClick={() => setSelectedDateKey(day.dateKey)}
+                  onClick={(event) => {
+                    setSelectedDateKey(day.dateKey);
+                    const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                    const menuWidth = 320;
+                    setDayMenu({
+                      dateKey: day.dateKey,
+                      top: Math.max(16, Math.min(rect.bottom + 8, window.innerHeight - 280)),
+                      left: Math.max(16, Math.min(rect.left, window.innerWidth - menuWidth - 16)),
+                    });
+                  }}
                 >
                   <span className="dashboard-day-number">{day.dayOfMonth}</span>
                   <span className="dashboard-day-badges">
@@ -170,6 +187,50 @@ const Dashboard = () => {
               );
             })}
           </div>
+          </div>
+
+          {dayMenu && (
+            <div
+              ref={dayMenuRef}
+              className="context-menu dashboard-day-menu"
+              style={{ top: dayMenu.top, left: dayMenu.left, position: 'fixed' }}
+            >
+              <div className="dashboard-day-menu-title">
+                Add to {dayMenu.dateKey}
+              </div>
+              <div className="dashboard-day-menu-section">TodoFlows</div>
+              {groupedItems.unscheduled.todos.length === 0 ? (
+                <div className="context-menu-item dashboard-menu-empty">No TodoFlows available</div>
+              ) : (
+                groupedItems.unscheduled.todos.map((todo) => (
+                  <button
+                    key={todo.id}
+                    type="button"
+                    className="context-menu-item dashboard-menu-entry"
+                    onClick={() => scheduleTodo(todo, dayMenu.dateKey)}
+                  >
+                    <span className="dashboard-menu-label">{todo.note}</span>
+                  </button>
+                ))
+              )}
+              <div className="context-menu-divider" />
+              <div className="dashboard-day-menu-section">Tasks</div>
+              {groupedItems.unscheduled.tasks.length === 0 ? (
+                <div className="context-menu-item dashboard-menu-empty">No tasks available</div>
+              ) : (
+                groupedItems.unscheduled.tasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="context-menu-item dashboard-menu-entry"
+                    onClick={() => scheduleTask(task, dayMenu.dateKey)}
+                  >
+                    <span className="dashboard-menu-label">{task.title}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </section>
 
         <aside className="dashboard-day-panel card">
@@ -183,7 +244,12 @@ const Dashboard = () => {
           ) : (
             selectedItems.todos.map((todo) => (
               <div key={todo.id} className="dashboard-scheduled-item">
-                <TodoInfo todo={todo} onMakeTodo={openTodo} setTrigger={fetchScheduleData} className="w-full action" />
+                <TodoInfo
+                  todo={todo}
+                  onMakeTodo={openTodo}
+                  onDeleted={fetchScheduleData}
+                  className="w-full action"
+                />
                 <button className="btn btn-secondary btn-sm w-full mt-2" onClick={() => scheduleTodo(todo, undefined)}>
                   Unschedule
                 </button>
@@ -197,7 +263,7 @@ const Dashboard = () => {
           ) : (
             selectedItems.tasks.map((task) => (
               <div key={task.id} className="dashboard-scheduled-item">
-                <TaskInfo task={task} className="w-full action" />
+                <TaskInfo task={task} className="w-full action" onDeleted={fetchScheduleData} />
                 <button className="btn btn-primary btn-sm w-full mt-2" onClick={() => openStandaloneTask(task)}>
                   Start as TodoFlow
                 </button>
@@ -209,45 +275,6 @@ const Dashboard = () => {
           )}
         </aside>
       </div>
-
-      <section className="dashboard-unscheduled">
-        <div className="dashboard-unscheduled-column">
-          <input
-            className="input input-primary"
-            placeholder="Search unscheduled TodoFlow"
-            value={todoKeySearch}
-            onChange={(event) => setTodoKeySearch(event.target.value)}
-          />
-          <div className="dashboard-unscheduled-list">
-            {filteredUnscheduledTodos.map((todo) => (
-              <div key={todo.id} className="dashboard-unscheduled-item">
-                <TodoInfo todo={todo} onMakeTodo={openTodo} setTrigger={fetchScheduleData} className="w-full action" />
-                <button className="btn btn-secondary btn-sm w-full mt-2" onClick={() => scheduleTodo(todo, selectedDateKey)}>
-                  Schedule on selected day
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="dashboard-unscheduled-column">
-          <input
-            className="input input-primary"
-            placeholder="Search unscheduled task"
-            value={taskKeySearch}
-            onChange={(event) => setTaskKeySearch(event.target.value)}
-          />
-          <div className="dashboard-unscheduled-list">
-            {filteredUnscheduledTasks.map((task) => (
-              <div key={task.id} className="dashboard-unscheduled-item">
-                <TaskInfo task={task} className="w-full action" />
-                <button className="btn btn-secondary btn-sm w-full mt-2" onClick={() => scheduleTask(task, selectedDateKey)}>
-                  Schedule on selected day
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

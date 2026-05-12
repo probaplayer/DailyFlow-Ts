@@ -27,7 +27,6 @@ import { IoMdArrowRoundUp } from "react-icons/io";
 import { RiCollapseDiagonalFill, RiResetLeftLine } from "react-icons/ri";
 import { TaskStatus } from '~/enums/TaskStatus.Type.enum';
 import TaskPlayer from '~/ui/components/TaskPlayer/TaskPlayer';
-import { addTaskCart } from '~/ui/store/task/taskCartSlice';
 import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
@@ -232,7 +231,6 @@ const Todoflow = () => {
       for (const taskId of tasksArray) {
         const task = todoFlow.tasks[taskId];
         await window.electronAPI.taskUpsert(task);
-        dispatch(addTaskCart(task));
       }
       
     } catch (error) {

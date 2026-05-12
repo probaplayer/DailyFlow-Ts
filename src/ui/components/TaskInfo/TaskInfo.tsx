@@ -1,24 +1,21 @@
-import { FaCartArrowDown } from "react-icons/fa";
 import { MdDeleteForever } from "react-icons/md";
 
 import { formatTime } from "~/ui/helpers/utils/utils";
-import { useAppDispatch } from "~/ui/store/hooks";
-import { addTaskInCart, removeTaskCart } from "~/ui/store/task/taskCartSlice";
 
 interface TaskInfoProps {
   task: Task;
   className?: string;
+  onDeleted?: () => void;
 }
 
-const TaskInfo = ({ task, className }: TaskInfoProps) => {
-  const dispatch = useAppDispatch();
+const TaskInfo = ({ task, className, onDeleted }: TaskInfoProps) => {
   if (!task) return null;
 
   const { title, estimatedTime } = task;
 
   const handleDeleteTask = async () => {
     await window.electronAPI.taskRemove(task.id);
-    dispatch(removeTaskCart(task.id));
+    onDeleted?.();
   }
 
   return (
@@ -29,11 +26,6 @@ const TaskInfo = ({ task, className }: TaskInfoProps) => {
         <p>{formatTime(estimatedTime)}</p>
       </div>
       <div className="absolute top-2 right-2 flex">
-        <button className="btn btn-icon "
-          onClick={() => {dispatch(addTaskInCart(task.id))}}
-        >
-          <FaCartArrowDown /> 
-        </button>
         <button className="btn btn-icon" onClick={handleDeleteTask}>
           <MdDeleteForever />
         </button>
