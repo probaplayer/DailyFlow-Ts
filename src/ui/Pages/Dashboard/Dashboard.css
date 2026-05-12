@@ -1,0 +1,152 @@
+.dashboard-calendar-page {
+  gap: 12px;
+  min-height: 0;
+}
+
+.dashboard-calendar-header,
+.dashboard-month-controls,
+.dashboard-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-month-button {
+  min-width: 64px;
+  min-height: 34px;
+  padding: 0.35rem 0.75rem;
+}
+
+.dashboard-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.dashboard-calendar-main {
+  min-height: 0;
+}
+
+.dashboard-weekdays,
+.dashboard-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dashboard-weekdays {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.dashboard-day {
+  min-height: 76px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 6px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.dashboard-day:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.dashboard-day.muted {
+  opacity: 0.45;
+}
+
+.dashboard-day.today {
+  border-color: var(--accent-primary);
+}
+
+.dashboard-day.selected {
+  outline: 2px solid var(--accent-primary);
+  background: var(--bg-tertiary);
+}
+
+.dashboard-day-number {
+  font-weight: 700;
+}
+
+.dashboard-day-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.dashboard-day-badges span {
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+}
+
+.dashboard-day-panel {
+  overflow-y: auto;
+  max-height: calc(100vh - 155px);
+  padding: 1rem;
+}
+
+.dashboard-day-panel h2 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dashboard-day-panel h3 {
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.dashboard-empty {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.dashboard-scheduled-item,
+.dashboard-unscheduled-item {
+  margin-top: 8px;
+}
+
+.dashboard-unscheduled {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+  max-height: 230px;
+}
+
+.dashboard-unscheduled-column {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-unscheduled-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .dashboard-calendar-layout,
+  .dashboard-unscheduled {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-day-panel {
+    max-height: 280px;
+  }
+}
