@@ -11,9 +11,9 @@ interface TaskInfoProps {
 }
 
 const TaskInfo = ({ task, className }: TaskInfoProps) => {
+  const dispatch = useAppDispatch();
   if (!task) return null;
 
-  const dispatch = useAppDispatch();
   const { title, estimatedTime } = task;
 
   const handleDeleteTask = async () => {

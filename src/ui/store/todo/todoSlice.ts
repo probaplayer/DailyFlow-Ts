@@ -217,7 +217,12 @@ const todoflowSlice = createSlice({
       if (state.timer) {
         clearInterval(state.timer);
       }
-      state.tasks[state.currentTaskId as string].status = TaskStatus.IN_PROGRESS;
+      const taskId = state.currentTaskId;
+      if (!taskId || !state.tasks[taskId]) {
+        state.timer = null;
+        return;
+      }
+      state.tasks[taskId].status = TaskStatus.IN_PROGRESS;
       state.timer = action.payload;
       todoflowSlice.caseReducers.calculateEstimatedTime(state);
     },
