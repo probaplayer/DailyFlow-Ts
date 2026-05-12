@@ -11,4 +11,6 @@ interface TodoFlow {
   currentTaskId?: string;
   timeLeft?: number;
   timer?: NodeJS.Timeout | null;
+  scheduledDate?: string;
+  lastNotifiedDate?: string;
 }

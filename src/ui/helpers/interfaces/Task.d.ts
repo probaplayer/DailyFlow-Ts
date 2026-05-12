@@ -7,6 +7,8 @@ interface Task {
   status: TaskStatus;
   isTaskBreak?: boolean;
   subTasks: SubTask[];
+  scheduledDate?: string;
+  lastNotifiedDate?: string;
 }
 
 interface SubTask{
