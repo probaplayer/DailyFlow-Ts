@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 enum IpcMainName {
     SET_WINDOW_ALWAYS_ON_TOP = 'set-window-always-on-top',
     CREATE_WINDOW = 'create-window',
+    OPEN_SCHEDULE_EDITOR_WINDOW = 'open-schedule-editor-window',
+    COMPLETE_SCHEDULE_EDITOR = 'complete-schedule-editor',
     LOAD_WINDOW_CONFIGS = 'load-window-configs',
     CLOSE_WINDOW = 'close-window',
     CLOSE_WINDOWS_BY_TYPE = 'close-windows-by-type',
@@ -43,6 +45,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Window operations
     createWindow: (windowType : string) => 
         ipcRenderer.invoke(IpcMainName.CREATE_WINDOW, windowType),
+    openScheduleEditorWindow: (payload: any) =>
+        ipcRenderer.invoke(IpcMainName.OPEN_SCHEDULE_EDITOR_WINDOW, payload),
+    completeScheduleEditor: (payload: any) =>
+        ipcRenderer.invoke(IpcMainName.COMPLETE_SCHEDULE_EDITOR, payload),
+    onScheduleEditorCompleted: (callback: (payload: any) => void) => {
+        const listener = (_event: any, payload: any) => callback(payload);
+        ipcRenderer.on(IpcMainName.COMPLETE_SCHEDULE_EDITOR, listener);
+        return () => ipcRenderer.removeListener(IpcMainName.COMPLETE_SCHEDULE_EDITOR, listener);
+    },
     closeWindow: (windowId : string) => 
         ipcRenderer.invoke(IpcMainName.CLOSE_WINDOW, windowId),
     closeWindowsByType: (windowType : string) => 

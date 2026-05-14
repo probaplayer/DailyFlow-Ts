@@ -12,11 +12,11 @@ const defaultWindowConfig = {
   resizable: false,
   width: 1100,
   height: 750,
-  titleBarStyle: 'hidden',
+  titleBarStyle: 'hidden' as const,
   frame: false,
   webPreferences: {
     preload: getPreloadPath(),
-    autoplayPolicy: 'no-user-gesture-required',
+    autoplayPolicy: 'no-user-gesture-required' as const,
     spellcheck: false,
     nodeIntegration: false,
     contextIsolation: true,
@@ -151,6 +151,76 @@ const createWindow = (windowType = 'main') => {
   return { id: windowType, type: windowType };
 };
 
+const createScheduleEditorWindow = (payload: any = {}) => {
+  const parentData = windows.get('main');
+  const parentWindow = parentData?.window;
+  const parentBounds = parentWindow?.getBounds() || {
+    width: defaultWindowConfig.width,
+    height: defaultWindowConfig.height,
+  };
+  const windowType = 'schedule-editor';
+  const existing = windows.get(windowType);
+
+  if (existing && !existing.window.isDestroyed()) {
+    existing.window.focus();
+    return Promise.resolve({ id: windowType, type: windowType, reused: true });
+  }
+
+  const params = new URLSearchParams();
+  if (Array.isArray(payload.dateKeys)) {
+    params.set('dates', payload.dateKeys.join(','));
+  }
+  if (payload.todoId) params.set('todoId', payload.todoId);
+  if (payload.taskId) params.set('taskId', payload.taskId);
+
+  const win = new BrowserWindow({
+    ...defaultWindowConfig,
+    parent: parentWindow,
+    modal: Boolean(parentWindow),
+    width: parentBounds.width,
+    height: parentBounds.height,
+    minWidth: 900,
+    minHeight: 620,
+    show: false,
+    icon: getIconPath("trayIcon.png"),
+    webPreferences: {
+      ...defaultWindowConfig.webPreferences,
+      preload: getPreloadPath(),
+    },
+  });
+
+  const route = `/schedule-editor?${params.toString()}`;
+  if (isDev()) {
+    win.loadURL(`http://localhost:5123/#${route}`);
+  } else {
+    win.loadFile(getUIPath(), { hash: route });
+  }
+
+  windows.set(windowType, { window: win, type: windowType });
+  let hasShown = false;
+  const showEditor = () => {
+    if (hasShown || win.isDestroyed()) return;
+    hasShown = true;
+    win.show();
+    win.focus();
+  };
+
+  win.once('ready-to-show', showEditor);
+  win.webContents.once('did-finish-load', showEditor);
+  setTimeout(showEditor, 1500);
+
+  if (isDev()) {
+    win.webContents.openDevTools();
+  }
+
+  return new Promise((resolve) => {
+    win.on('closed', () => {
+      windows.delete(windowType);
+      resolve({ id: windowType, type: windowType, closed: true });
+    });
+  });
+};
+
 const closeWindow = (windowId : string) => {
   const windowData = windows.get(windowId);
   if (windowData) {
@@ -204,6 +274,7 @@ export{
   windows,
   windowConfigs,
   createWindow,
+  createScheduleEditorWindow,
   closeWindow,
   closeWindowsByType,
   closeAllExceptMain,

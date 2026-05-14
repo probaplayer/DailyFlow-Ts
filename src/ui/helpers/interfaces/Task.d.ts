@@ -8,6 +8,7 @@ interface Task {
   isTaskBreak?: boolean;
   subTasks: SubTask[];
   scheduledDate?: string;
+  scheduleSlots?: ScheduleSlot[];
   lastNotifiedDate?: string;
 }
 

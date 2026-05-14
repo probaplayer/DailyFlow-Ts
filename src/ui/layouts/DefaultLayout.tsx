@@ -5,7 +5,8 @@ import {
   IoSettingsOutline, 
   IoMoonOutline, 
   IoSunnyOutline, 
-  IoHomeOutline  
+  IoHomeOutline,
+  IoListOutline
 } from "react-icons/io5";
 import { RiShutDownLine } from "react-icons/ri";
 import { FaTasks } from "react-icons/fa";
@@ -35,9 +36,12 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
           </button>
           <button className="btn btn-primary h-[25px]" onClick={() => {
             dispatch(initializeTodoFlow({ id: '' }));
-            navigate('/todoflow')
+            navigate('/todoflow', { state: { mode: 'create' } })
           }}>
             <FaTasks />
+          </button>
+          <button className="btn btn-icon" onClick={() => navigate('/manage')}>
+            <IoListOutline />
           </button>
         </div>
         <div className="nav-bottom">

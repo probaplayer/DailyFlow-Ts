@@ -1,3 +1,9 @@
+interface ScheduleSlot {
+  dateKey: string;
+  startTime: string;
+  endTime: string;
+}
+
 interface TodoFlow {
   id: string;
   note: string;
@@ -12,5 +18,7 @@ interface TodoFlow {
   timeLeft?: number;
   timer?: NodeJS.Timeout | null;
   scheduledDate?: string;
+  scheduledDates?: string[];
+  scheduleSlots?: ScheduleSlot[];
   lastNotifiedDate?: string;
 }

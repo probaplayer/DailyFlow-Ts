@@ -1,15 +1,17 @@
 import { useState, useEffect, useContext } from 'react';
 import { useAlert } from '~/ui/helpers/hooks/useAlert';
 import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
-import { getPageSize } from '~/shared/util.page';
 import { PageType } from '~/enums/PageType.enum';
-import { getOnMiddleInScreen } from '~/ui/helpers/utils/utils';
 import { IoIosArrowBack } from "react-icons/io";
 import { ThemeContext } from '~/ui/App';
+import './Settings.css';
+import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
+import { useNavigate } from 'react-router-dom';
 
 
 const Settings = () => {
   const { toggleTheme } = useContext(ThemeContext);
+  const navigate = useNavigate();
   const { success } = useAlert(); 
   const [settings, setSettings] = useState<AppSettings>({
     startWithWindows: false,
@@ -21,6 +23,7 @@ const Settings = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const soundPlayer = SoundPlayer.getInstance();
+  useResizePage(PageType.SETTING);
 
   const breakTimeOptions = [
     { label: '5 Seconds', value: 5 },
@@ -71,13 +74,6 @@ const Settings = () => {
       }
     };
 
-    const handleToResize = async () => {
-      const {width, height} = getPageSize(PageType.SETTING);
-      const { width: currentWidth, height: currentHeight} = await window.electronAPI.getUserScreenSize();
-      await window.electronAPI.smoothResizeAndMove('main', width, height, 60, 
-        getOnMiddleInScreen(currentWidth, currentHeight, width, height));
-    }
-    handleToResize();
     loadSettings();
   }, []);
 
@@ -129,11 +125,11 @@ const Settings = () => {
   };
 
   return (
-    <div className="p-0 current-background" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="settings-page current-background">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-2">
-            <button className='btn btn-icon' onClick={() => window.history.back()}>
+            <button className='btn btn-icon' onClick={() => navigate(-1)}>
               <IoIosArrowBack size={24} />
             </button>
             <h1 className="text-3xl font-bold mb-2 text-highlight">Settings</h1>

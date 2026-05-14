@@ -1,13 +1,15 @@
 import { useState, createContext, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import IndexPage from './Pages/IndexPage/IndexPage';
 import Dashboard from './Pages/Dashboard/Dashboard';
+import Manage from './Pages/Manage/Manage';
 import Settings from './Pages/Setting/Settings';
 import DefaultLayout from './layouts/DefaultLayout';
 import Todoflow from './Pages/Todoflow/Todoflow';
+import ScheduleEditor from './Pages/ScheduleEditor/ScheduleEditor';
 import AlertSystem from './components/AlertSystem/AlertSystem';
+import ScheduleEditorCompletionListener from './components/ScheduleEditorCompletionListener';
 import OnTask from './Pages/Focus/Focus';
 import { PageType } from '~/enums/PageType.enum';
 import SoundPlayer from './helpers/utils/SoundPlayer';
@@ -101,16 +103,17 @@ function App() {
   return (
     <Provider store={store}>
       <ThemeContext.Provider value={{ isDarkTheme, toggleTheme }}>
-          <DefaultLayout>
           <Routes>
-            <Route path="/" element={<IndexPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/setting" element={<Settings />} />
-            <Route path="/todoflow" element={<Todoflow />} />
-            <Route path="/ontask" element={<OnTask />} />
-            <Route path="*" element={<div>404 Not Found</div>} />
+            <Route path="/schedule-editor" element={<ScheduleEditor />} />
+            <Route path="/" element={<DefaultLayout><Dashboard /></DefaultLayout>} />
+            <Route path="/dashboard" element={<DefaultLayout><Dashboard /></DefaultLayout>} />
+            <Route path="/manage" element={<DefaultLayout><Manage /></DefaultLayout>} />
+            <Route path="/setting" element={<DefaultLayout><Settings /></DefaultLayout>} />
+            <Route path="/todoflow" element={<DefaultLayout><Todoflow /></DefaultLayout>} />
+            <Route path="/ontask" element={<DefaultLayout><OnTask /></DefaultLayout>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          </DefaultLayout>
+          <ScheduleEditorCompletionListener />
           <AlertSystem />
       </ThemeContext.Provider>
     </Provider>

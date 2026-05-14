@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { IoAddCircleOutline, IoSettingsOutline } from "react-icons/io5";
 import { useContext, useEffect, useRef, useState } from "react";
 import Task from "~/ui/components/Task/Task";
@@ -31,9 +31,11 @@ import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
 import InputHandler from '~/ui/components/InputHandler/InputHandler';
+import { getTodoScheduleDateKeys } from '~/ui/helpers/utils/scheduleUtils';
 
 const Todoflow = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { info, notify } = useAlert();
   const todoFlow = useAppSelector((state) => state.todoflow);
@@ -42,6 +44,8 @@ const Todoflow = () => {
   const [triggerTaskValidation, setTriggerTaskValidation] = useState<boolean>(false);
   const [isNewTodo, setIsNewTodo] = useState<boolean>(true);
   const soundPlayer = SoundPlayer.getInstance();
+  const isCreateMode = (location.state as { mode?: string } | null)?.mode === 'create';
+  const assignedDateKeys = getTodoScheduleDateKeys(todoFlow);
 
   useEffect(() =>{
     const handleToResize = async () => {
@@ -56,7 +60,7 @@ const Todoflow = () => {
   useEffect(() => {
     const fetchAndInitialize = async () => {
       if (todoFlow.id) {
-        setIsNewTodo(false);
+        setIsNewTodo(isCreateMode);
         if (todoFlow.status === TodoStatus.START_ON_TODO && todoFlow.currentTaskId && todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS) {
           dispatch(setStartTimer(setInterval(() => {
              dispatch(setTimeLeft(undefined));
@@ -262,6 +266,11 @@ const Todoflow = () => {
                 onBlur={handleNoteBlur}
               />
               {noteError && <p className="text-red-500 text-sm mt-1">{noteError}</p>}
+              {assignedDateKeys.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Assigned: {assignedDateKeys.join(', ')}
+                </p>
+              )}
             </div>
           </div>
         </div>

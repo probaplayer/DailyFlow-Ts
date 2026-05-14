@@ -6,6 +6,7 @@ import {
   closeWindow, 
   closeWindowsByType, 
   createWindow, 
+  createScheduleEditorWindow,
   focusWindow, 
   getAllWindows, 
   GetCurrentPosition, 
@@ -29,6 +30,21 @@ export const setupIpcMainHandlers = () => {
 
   ipcMain.handle(IpcMainName.CREATE_WINDOW, async (event, windowType) => {
     return createWindow(windowType);
+  });
+
+  ipcMain.handle(IpcMainName.OPEN_SCHEDULE_EDITOR_WINDOW, async (event, payload) => {
+    return await createScheduleEditorWindow(payload);
+  });
+
+  ipcMain.handle(IpcMainName.COMPLETE_SCHEDULE_EDITOR, async (event, payload) => {
+    const mainWindow = windows.get('main')?.window;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IpcMainName.COMPLETE_SCHEDULE_EDITOR, payload);
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    closeWindow('schedule-editor');
+    return true;
   });
 
   ipcMain.handle(IpcMainName.LOAD_WINDOW_CONFIGS, async () => {
