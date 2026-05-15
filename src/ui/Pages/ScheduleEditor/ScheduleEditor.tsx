@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { IoClose, IoSaveOutline } from 'react-icons/io5';
 import './ScheduleEditor.css';
@@ -7,8 +7,6 @@ import {
   createDefaultTasksForSchedule,
   createScheduledTodoFlow,
   findAutoFitScheduleSlot,
-  formatDateKeyList,
-  getTodoScheduleDateKeys,
   hasOverlappingScheduleSlot,
   isScheduleSlotSelectable,
   moveScheduleSlotPreservingDuration,
@@ -22,6 +20,8 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2
 const HOUR_HEIGHT = 64;
 const MIN_DAY_WIDTH = 220;
 const MINUTE_STEP = 15;
+const AUTO_SCROLL_EDGE = 48;
+const AUTO_SCROLL_STEP = 18;
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
 
@@ -82,6 +82,7 @@ const getMinSelectableTime = (dateKey: string): string | undefined => {
 const ScheduleEditor = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const timelineWrapRef = useRef<HTMLDivElement | null>(null);
   const dateKeys = useMemo(() => parseDateKeys(searchParams.get('dates')), [searchParams]);
   const todoId = searchParams.get('todoId');
   const [todo, setTodo] = useState<TodoFlow | null>(null);
@@ -132,7 +133,24 @@ const ScheduleEditor = () => {
   useEffect(() => {
     if (!dragState || !todo) return;
 
+    const scrollTimelineNearEdge = (event: MouseEvent) => {
+      const container = timelineWrapRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      let left = 0;
+      let top = 0;
+      if (event.clientY > rect.bottom - AUTO_SCROLL_EDGE) top = AUTO_SCROLL_STEP;
+      if (event.clientY < rect.top + AUTO_SCROLL_EDGE) top = -AUTO_SCROLL_STEP;
+      if (event.clientX > rect.right - AUTO_SCROLL_EDGE) left = AUTO_SCROLL_STEP;
+      if (event.clientX < rect.left + AUTO_SCROLL_EDGE) left = -AUTO_SCROLL_STEP;
+      if (left || top) {
+        container.scrollBy({ left, top });
+      }
+    };
+
     const handleMove = (event: MouseEvent) => {
+      scrollTimelineNearEdge(event);
       const deltaMinutes = snapMinutes(((event.clientY - dragState.startY) / HOUR_HEIGHT) * 60);
       const slot = todo.scheduleSlots?.find((item) => item.dateKey === dragState.dateKey);
       if (!slot) return;
@@ -190,7 +208,24 @@ const ScheduleEditor = () => {
   useEffect(() => {
     if (!selection) return;
 
+    const scrollTimelineNearEdge = (event: MouseEvent) => {
+      const container = timelineWrapRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      let left = 0;
+      let top = 0;
+      if (event.clientY > rect.bottom - AUTO_SCROLL_EDGE) top = AUTO_SCROLL_STEP;
+      if (event.clientY < rect.top + AUTO_SCROLL_EDGE) top = -AUTO_SCROLL_STEP;
+      if (event.clientX > rect.right - AUTO_SCROLL_EDGE) left = AUTO_SCROLL_STEP;
+      if (event.clientX < rect.left + AUTO_SCROLL_EDGE) left = -AUTO_SCROLL_STEP;
+      if (left || top) {
+        container.scrollBy({ left, top });
+      }
+    };
+
     const handleMove = (event: MouseEvent) => {
+      scrollTimelineNearEdge(event);
       const target = document.elementFromPoint(event.clientX, event.clientY);
       const hoursContainer = target?.closest?.('.schedule-editor-hours') as HTMLElement | null;
       if (!hoursContainer) return;
@@ -218,7 +253,6 @@ const ScheduleEditor = () => {
   }, [selection, todo]);
 
   const title = dateKeys.length > 1 ? `${dateKeys.length} days` : dateKeys[0];
-  const assignedDateKeys = todo ? getTodoScheduleDateKeys(todo) : [];
   const busySlots = otherTodos.flatMap((item) =>
     (item.scheduleSlots || []).map((slot) => ({ ...slot, todoId: item.id, title: item.note || 'TodoFlow' }))
   );
@@ -393,14 +427,11 @@ const ScheduleEditor = () => {
             placeholder="What will this TodoFlow focus on?"
           />
         </label>
-        <div className="schedule-editor-summary">
-          {formatDateKeyList(assignedDateKeys)}
-        </div>
       </section>
 
       {slotError && <p className="schedule-editor-error">{slotError}</p>}
 
-      <div className="schedule-editor-timeline-wrap">
+      <div className="schedule-editor-timeline-wrap" ref={timelineWrapRef}>
         <div
           className="schedule-editor-timeline"
           style={{ gridTemplateColumns: `72px repeat(${dateKeys.length}, minmax(${MIN_DAY_WIDTH}px, 1fr))` }}

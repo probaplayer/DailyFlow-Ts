@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   buildMonthDays,
-  formatDateKeyList,
+  formatDateChipLabels,
   getDueNotificationItems,
   getDueSlotNotificationItems,
   getTodoFlowLaunchLabel,
@@ -20,8 +20,11 @@ import {
   toggleDateKeySelection,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
+import DateChipList from '~/ui/components/DateChipList/DateChipList';
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
+const AUTO_SCROLL_EDGE = 48;
+const AUTO_SCROLL_STEP = 18;
 
 const isDueSlotNotification = (item: unknown): item is DueSlotNotificationItem => {
   return Boolean(item && typeof item === 'object' && 'slot' in item && 'notificationKey' in item);
@@ -31,6 +34,7 @@ const Dashboard = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const dayMenuRef = useRef<HTMLDivElement | null>(null);
+  const calendarLayoutRef = useRef<HTMLDivElement | null>(null);
   const [todos, setTodos] = useState<TodoFlow[]>([]);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
@@ -102,6 +106,29 @@ const Dashboard = () => {
     document.addEventListener('mouseup', stopSelecting);
     return () => document.removeEventListener('mouseup', stopSelecting);
   }, []);
+
+  useEffect(() => {
+    if (!isSelectingDates) return;
+
+    const scrollCalendarNearEdge = (event: MouseEvent) => {
+      const container = calendarLayoutRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      let left = 0;
+      let top = 0;
+      if (event.clientY > rect.bottom - AUTO_SCROLL_EDGE) top = AUTO_SCROLL_STEP;
+      if (event.clientY < rect.top + AUTO_SCROLL_EDGE) top = -AUTO_SCROLL_STEP;
+      if (event.clientX > rect.right - AUTO_SCROLL_EDGE) left = AUTO_SCROLL_STEP;
+      if (event.clientX < rect.left + AUTO_SCROLL_EDGE) left = -AUTO_SCROLL_STEP;
+      if (left || top) {
+        container.scrollBy({ left, top });
+      }
+    };
+
+    document.addEventListener('mousemove', scrollCalendarNearEdge);
+    return () => document.removeEventListener('mousemove', scrollCalendarNearEdge);
+  }, [isSelectingDates]);
 
   useEffect(() => {
     const notifyDueItems = async () => {
@@ -209,7 +236,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="dashboard-calendar-layout">
+      <div className="dashboard-calendar-layout" ref={calendarLayoutRef}>
         <aside className="dashboard-day-panel card">
           <div className="dashboard-panel-header">
             <h2>{selectedLabel}</h2>
@@ -223,7 +250,7 @@ const Dashboard = () => {
               <div key={todo.id} className="dashboard-scheduled-item">
                 <div className="dashboard-readonly-card">
                   <div className="dashboard-readonly-title">{todo.note || 'TodoFlow'}</div>
-                  <div className="dashboard-selection-meta">{formatDateKeyList(dateKeys)}</div>
+                  <DateChipList labels={formatDateChipLabels(dateKeys)} className="dashboard-selection-meta" />
                   {renderSlotSummary(slots)}
                 </div>
                 <button

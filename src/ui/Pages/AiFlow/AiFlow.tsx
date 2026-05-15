@@ -4,11 +4,13 @@ import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   createAiTodoFlowAnalysisPrompt,
   createAiTodoFlowPrompt,
-  formatDateKeyList,
+  formatDateChipLabels,
   getTodoFlowAnalytics,
   getTodoScheduleDateKeys,
 } from '~/ui/helpers/utils/scheduleUtils';
 import { formatTime } from '~/ui/helpers/utils/utils';
+import AppDropdown from '~/ui/components/AppDropdown/AppDropdown';
+import DateChipList from '~/ui/components/DateChipList/DateChipList';
 import './AiFlow.css';
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
@@ -26,6 +28,11 @@ const modelOptions: Record<AiProvider, string[]> = {
   anthropic: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
   gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
 };
+const providerOptions: { value: AiProvider; label: string }[] = [
+  { value: 'openai', label: 'GPT' },
+  { value: 'anthropic', label: 'Claude' },
+  { value: 'gemini', label: 'Gemini' },
+];
 
 const defaultConfig: AiConfig = {
   provider: 'openai',
@@ -48,62 +55,6 @@ function loadAiConfig(): AiConfig {
   } catch {
     return defaultConfig;
   }
-}
-
-async function callAiProvider(config: AiConfig, prompt: string): Promise<string> {
-  if (!config.apiKey.trim()) {
-    throw new Error('API key is required.');
-  }
-
-  if (config.provider === 'openai') {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        input: prompt,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error?.message || 'OpenAI request failed.');
-    return data.output_text || data.output?.[0]?.content?.[0]?.text || JSON.stringify(data, null, 2);
-  }
-
-  if (config.provider === 'anthropic') {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': config.apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: 1200,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error?.message || 'Claude request failed.');
-    return data.content?.map((item: { text?: string }) => item.text).filter(Boolean).join('\n') || JSON.stringify(data, null, 2);
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${encodeURIComponent(config.apiKey)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    }
-  );
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message || 'Gemini request failed.');
-  return data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text).filter(Boolean).join('\n') || JSON.stringify(data, null, 2);
 }
 
 const AiFlow = () => {
@@ -151,7 +102,7 @@ const AiFlow = () => {
     setStatus(nextStatus);
     setResult('');
     try {
-      const response = await callAiProvider(config, prompt);
+      const response = await window.electronAPI.aiRequest({ ...config, prompt });
       setResult(response);
       setStatus('Done');
     } catch (error) {
@@ -184,30 +135,22 @@ const AiFlow = () => {
 
       <section className="ai-config card">
         <div>
-          <label>Provider</label>
-          <select
-            className="input input-primary"
+          <AppDropdown
+            label="Provider"
             value={config.provider}
-            onChange={(event) => updateProvider(event.target.value as AiProvider)}
-          >
-            <option value="openai">GPT</option>
-            <option value="anthropic">Claude</option>
-            <option value="gemini">Gemini</option>
-          </select>
+            options={providerOptions}
+            disabled={isLoading}
+            onChange={updateProvider}
+          />
         </div>
         <div>
-          <label>Model</label>
-          <select
-            className="input input-primary"
+          <AppDropdown
+            label="Model"
             value={config.model}
-            onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
-          >
-            {currentModels.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
-          </select>
+            options={currentModels.map((model) => ({ value: model, label: model }))}
+            disabled={isLoading}
+            onChange={(model) => setConfig((current) => ({ ...current, model }))}
+          />
         </div>
         <div className="ai-api-key">
           <label>API key</label>
@@ -282,7 +225,7 @@ const AiFlow = () => {
           {recentTodos.map((todo) => (
             <div key={todo.id} className="ai-recent-item">
               <strong>{todo.note || 'TodoFlow'}</strong>
-              <span>{formatDateKeyList(getTodoScheduleDateKeys(todo), 'Unscheduled')}</span>
+              <DateChipList labels={formatDateChipLabels(getTodoScheduleDateKeys(todo))} emptyText="Unscheduled" />
             </div>
           ))}
         </div>

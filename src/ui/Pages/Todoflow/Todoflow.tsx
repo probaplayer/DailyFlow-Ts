@@ -33,13 +33,14 @@ import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
 import InputHandler from '~/ui/components/InputHandler/InputHandler';
 import {
-  formatDateKeyList,
+  formatDateChipLabels,
   getTodoScheduleDateKeys,
   hasTodoFlowStarted,
   resetTodoFlowProgress,
   splitTodoFlowForDate,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
+import DateChipList from '~/ui/components/DateChipList/DateChipList';
 
 const Todoflow = () => {
   const navigate = useNavigate();
@@ -396,9 +397,10 @@ const Todoflow = () => {
               />
               {noteError && <p className="text-red-500 text-sm mt-1">{noteError}</p>}
               {assignedDateKeys.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Assigned: {formatDateKeyList(assignedDateKeys)}
-                </p>
+                <div className="text-xs text-gray-500 mt-1">
+                  <span>Assigned:</span>
+                  <DateChipList labels={formatDateChipLabels(assignedDateKeys)} className="mt-1" />
+                </div>
               )}
             </div>
           </div>

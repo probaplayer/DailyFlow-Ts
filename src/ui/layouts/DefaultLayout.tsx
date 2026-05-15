@@ -41,7 +41,7 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
           <button className={navClass('/dashboard')} title="Dashboard" onClick={() => navigate('/dashboard')}>
             <IoHomeOutline />
           </button>
-          <button className={navClass('/manage', true)} title="Manage TodoFlow" onClick={() => navigate('/manage')}>
+          <button className={navClass('/manage')} title="Manage TodoFlow" onClick={() => navigate('/manage')}>
             <IoListOutline />
           </button>
           <button className={navClass('/analytics')} title="Analytics" onClick={() => navigate('/analytics')}>

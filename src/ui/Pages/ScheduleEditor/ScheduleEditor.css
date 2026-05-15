@@ -44,9 +44,7 @@
 }
 
 .schedule-editor-note {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  display: block;
   align-items: end;
   padding: 12px 18px;
   border-bottom: 1px solid var(--border-color);
@@ -65,8 +63,6 @@
   font-size: 0.85rem;
   max-width: 340px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .schedule-editor-error {

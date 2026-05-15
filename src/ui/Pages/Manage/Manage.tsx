@@ -12,6 +12,7 @@ import {
 import { generateId } from '~/ui/helpers/utils/utils';
 import { PageType } from '~/enums/PageType.enum';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
+import AppDropdown from '~/ui/components/AppDropdown/AppDropdown';
 import './Manage.css';
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
@@ -80,17 +81,12 @@ const Manage = () => {
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Search TodoFlows and tasks"
         />
-        <select
-          className="input input-primary manage-filter-select"
+        <AppDropdown
+          className="manage-filter-select"
           value={filter}
-          onChange={(event) => setFilter(event.target.value as ManageItemFilter)}
-        >
-          {filterOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          options={filterOptions}
+          onChange={setFilter}
+        />
       </div>
 
       <div className="manage-grid">

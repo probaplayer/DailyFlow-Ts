@@ -7,6 +7,7 @@ import { ThemeContext } from '~/ui/App';
 import './Settings.css';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import { useNavigate } from 'react-router-dom';
+import AppDropdown from '~/ui/components/AppDropdown/AppDropdown';
 
 
 const Settings = () => {
@@ -166,22 +167,11 @@ const Settings = () => {
               <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
                 Set how long your break periods should last
               </p>
-              <select
+              <AppDropdown
                 value={settings.breakTime}
-                onChange={(e) => setSettings(prev => ({ ...prev, breakTime: parseInt(e.target.value) }))}
-                className="click w-full p-3 rounded-lg border-2 transition-all focus:outline-none"
-                style={{
-                  background: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  borderColor: 'var(--border-color)'
-                }}
-              >
-                {breakTimeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                options={breakTimeOptions}
+                onChange={(breakTime) => setSettings(prev => ({ ...prev, breakTime }))}
+              />
             </div>
           </div>
 

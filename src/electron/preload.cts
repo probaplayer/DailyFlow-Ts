@@ -37,6 +37,7 @@ enum IpcMainName {
     SMOOTH_RESIZE_AND_MOVE = 'smooth-resize-and-move',
     SYSTEM_ALERT = 'system-alert',
     SYSTEM_NOTIFICATION = 'system-notification',
+    AI_REQUEST = 'ai-request',
     APP_CLOSE = 'app-close',
     APP_MINIMIZE = 'app-minimize'
 }
@@ -132,6 +133,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         body: string;
         icon?: string;
     }) => ipcRenderer.invoke(IpcMainName.SYSTEM_NOTIFICATION, options),
+    aiRequest: (payload: {
+        provider: 'openai' | 'anthropic' | 'gemini';
+        model: string;
+        apiKey: string;
+        prompt: string;
+    }) => ipcRenderer.invoke(IpcMainName.AI_REQUEST, payload),
     // App settings
     getSettings: () => ipcRenderer.invoke(IpcMainName.GET_SETTINGS),
     saveSettings: (settings: any) => ipcRenderer.invoke(IpcMainName.SAVE_SETTINGS, settings),

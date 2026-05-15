@@ -1,7 +1,10 @@
 .manage-page {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  max-width: 100%;
 }
 
 .manage-header {
@@ -13,6 +16,7 @@
 }
 
 .manage-toolbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -34,12 +38,14 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
-  height: calc(100% - 112px);
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .manage-column {
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   padding: 0.75rem;
 }
@@ -58,12 +64,12 @@
 
 @media (max-width: 900px) {
   .manage-page {
-    overflow-y: auto;
+    overflow-y: hidden;
   }
 
   .manage-grid {
     grid-template-columns: 1fr;
-    height: auto;
+    overflow-y: auto;
   }
 
   .manage-toolbar {

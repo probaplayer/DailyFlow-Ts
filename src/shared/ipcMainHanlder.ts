@@ -17,6 +17,7 @@ import {
 } from './util.window.js';
 import { IpcMainName } from '../enums/IpcMain.Name.enum.js';
 import { getIconPath } from '../pathResolver.js';
+import { requestAiProvider, type AiProviderRequest } from './aiProvider.js';
 let store: any = new Store({ name: 'settings' });
 export const setupIpcMainHandlers = () => {
   ipcMain.handle(IpcMainName.SET_WINDOW_ALWAYS_ON_TOP, async (event, windowId: string, isAlwaysOnTop: boolean) => {
@@ -380,6 +381,15 @@ export const setupIpcMainHandlers = () => {
     } catch (error) {
       console.error('Notification error:', error);
       return false;
+    }
+  });
+
+  ipcMain.handle(IpcMainName.AI_REQUEST, async (event, payload: AiProviderRequest) => {
+    try {
+      return await requestAiProvider(payload);
+    } catch (error) {
+      console.error('AI request error:', error);
+      throw error;
     }
   });
 

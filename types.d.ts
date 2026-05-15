@@ -49,6 +49,12 @@ interface Window {
         body: string;
         icon?: string;
     }) => Promise<boolean>;
+    aiRequest: (payload: {
+        provider: 'openai' | 'anthropic' | 'gemini';
+        model: string;
+        apiKey: string;
+        prompt: string;
+    }) => Promise<string>;
     // App settings
     getSettings: () => Promise<AppSettings>;
     saveSettings: (settings: AppSettings) => Promise<void>;

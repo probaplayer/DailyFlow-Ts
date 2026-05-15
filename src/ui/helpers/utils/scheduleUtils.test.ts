@@ -9,7 +9,10 @@ import {
   createAiTodoFlowPrompt,
   createAiTodoFlowAnalysisPrompt,
   filterManageItems,
+  formatDateChipLabels,
+  formatDateChipItems,
   formatDateKeyList,
+  formatScheduleSlotChipLabels,
   findAutoFitScheduleSlot,
   getTodoFlowAnalytics,
   getScheduleSlotForDate,
@@ -459,6 +462,31 @@ describe('scheduleUtils', () => {
       '2026-05-13 | 2026-05-15 | 2026-05-20'
     );
     expect(formatDateKeyList([])).toBe('No time selected');
+  });
+
+  it('returns sorted date labels for chip-based UI', () => {
+    expect(formatDateChipLabels(['2026-05-20', '2026-05-13', '2026-05-15'])).toEqual([
+      '2026-05-13',
+      '2026-05-15',
+      '2026-05-20',
+    ]);
+    expect(formatDateChipLabels([])).toEqual([]);
+  });
+
+  it('marks today in date chip data', () => {
+    expect(formatDateChipItems(['2026-05-16', '2026-05-15'], '2026-05-15')).toEqual([
+      { label: '2026-05-15', isToday: true },
+      { label: '2026-05-16', isToday: false },
+    ]);
+  });
+
+  it('returns schedule slot labels for chip-based UI', () => {
+    expect(
+      formatScheduleSlotChipLabels([
+        { dateKey: '2026-05-15', startTime: '14:00', endTime: '15:00' },
+        { dateKey: '2026-05-13', startTime: '09:00', endTime: '10:00' },
+      ])
+    ).toEqual(['2026-05-13 09:00-10:00', '2026-05-15 14:00-15:00']);
   });
 
   it('keeps at least one selected calendar date when toggling', () => {

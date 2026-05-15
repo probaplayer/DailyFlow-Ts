@@ -143,6 +143,26 @@ export function formatDateKeyList(dateKeys: string[], emptyText = 'No time selec
   return uniqueDateKeys.join(' | ');
 }
 
+export function formatDateChipLabels(dateKeys: string[]): string[] {
+  return uniqueSortedDateKeys(dateKeys);
+}
+
+export function formatDateChipItems(
+  dateKeys: string[],
+  todayKey = toDateKey(new Date())
+): Array<{ label: string; isToday: boolean }> {
+  return formatDateChipLabels(dateKeys).map((label) => ({
+    label,
+    isToday: label === todayKey,
+  }));
+}
+
+export function formatScheduleSlotChipLabels(slots: ScheduleSlot[] = []): string[] {
+  return [...slots]
+    .sort((a, b) => `${a.dateKey}T${a.startTime}`.localeCompare(`${b.dateKey}T${b.startTime}`))
+    .map((slot) => `${slot.dateKey} ${slot.startTime}-${slot.endTime}`);
+}
+
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split('-').map(Number);
   return new Date(year, month - 1, day);

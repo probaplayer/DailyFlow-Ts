@@ -35,6 +35,7 @@ export enum IpcMainName {
     SMOOTH_RESIZE_AND_MOVE = 'smooth-resize-and-move',
     SYSTEM_ALERT = 'system-alert',
     SYSTEM_NOTIFICATION = 'system-notification',
+    AI_REQUEST = 'ai-request',
     APP_CLOSE = 'app-close',
     APP_MINIMIZE = 'app-minimize'
 }

@@ -5,10 +5,11 @@ import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   getTodoFlowAnalytics,
   getTodoScheduleDateKeys,
-  formatDateKeyList,
+  formatDateChipLabels,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
 import { formatTime } from '~/ui/helpers/utils/utils';
+import DateChipList from '~/ui/components/DateChipList/DateChipList';
 import './Analytics.css';
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
@@ -105,7 +106,7 @@ const Analytics = () => {
               {upcomingTodos.map((todo) => (
                 <div key={todo.id} className="analytics-list-item">
                   <strong>{todo.note || 'TodoFlow'}</strong>
-                  <span>{formatDateKeyList(getTodoScheduleDateKeys(todo), 'Unscheduled')}</span>
+                  <DateChipList labels={formatDateChipLabels(getTodoScheduleDateKeys(todo))} emptyText="Unscheduled" />
                 </div>
               ))}
             </div>
