@@ -6,22 +6,31 @@ import {
   createDefaultTasksForSchedule,
   createScheduledTodoFlow,
   createTodoFlowFromTask,
+  filterManageItems,
   findAutoFitScheduleSlot,
+  getTodoFlowAnalytics,
   getScheduleSlotForDate,
   getDueNotificationItems,
   getDueSlotNotificationItems,
+  getTodoFlowLaunchLabel,
   getTodoScheduleDateKeys,
   getTodoTaskEstimatedSeconds,
   groupScheduledItemsByDate,
   groupScheduledItemsForDateRange,
   hasOverlappingScheduleSlot,
+  hasTodoFlowStarted,
+  isScheduleSlotSelectable,
   isPastDateKey,
   listDateKeysBetween,
   moveScheduleSlotPreservingDuration,
+  splitTodoFlowForDate,
+  resetTodoFlowProgress,
   secondsBetweenTimeStrings,
   setTaskScheduleSlot,
   setTodoAssignedDate,
   setTodoScheduleSlot,
+  syncTodoTaskEstimatesWithDuration,
+  toggleDateKeySelection,
   unsetTodoAssignedDate,
   toDateKey,
 } from './scheduleUtils';
@@ -163,6 +172,25 @@ describe('scheduleUtils', () => {
     expect(updated.estimatedTimeTodo).toBe(9000);
   });
 
+  it('sets TodoFlow estimated time from the total duration of all schedule slots', () => {
+    const firstSlot = setTodoScheduleSlot(todo('todo-1', 'Plan'), {
+      dateKey: '2026-05-13',
+      startTime: '09:00',
+      endTime: '10:00',
+    });
+    const updated = setTodoScheduleSlot(firstSlot, {
+      dateKey: '2026-05-14',
+      startTime: '11:00',
+      endTime: '12:30',
+    });
+
+    expect(updated.scheduleSlots).toEqual([
+      { dateKey: '2026-05-13', startTime: '09:00', endTime: '10:00' },
+      { dateKey: '2026-05-14', startTime: '11:00', endTime: '12:30' },
+    ]);
+    expect(updated.estimatedTimeTodo).toBe(9000);
+  });
+
   it('sets a Task schedule slot and updates estimated time from duration', () => {
     const updated = setTaskScheduleSlot(task('task-1', 'Email'), {
       dateKey: '2026-05-13',
@@ -235,6 +263,133 @@ describe('scheduleUtils', () => {
     expect(updated.scheduledDates).toBeUndefined();
   });
 
+  it('splits one scheduled date into an independent TodoFlow and keeps the other dates on the original', () => {
+    const source = {
+      ...todo('todo-1', 'Shared plan'),
+      taskCompleted: 1,
+      taskTotal: 2,
+      actualTimeTodo: 90,
+      taskIds: ['task-1', 'task-2'],
+      tasks: {
+        'task-1': { ...task('task-1', 'First'), status: TaskStatus.COMPLETED, actualTime: 90 },
+        'task-2': task('task-2', 'Second'),
+      },
+      scheduleSlots: [
+        { dateKey: '2026-05-13', startTime: '09:00', endTime: '10:00' },
+        { dateKey: '2026-05-14', startTime: '11:00', endTime: '12:30' },
+      ],
+      scheduledDate: '2026-05-13',
+      scheduledDates: ['2026-05-13', '2026-05-14'],
+      estimatedTimeTodo: 9000,
+      timer: setTimeout(() => undefined, 1),
+    };
+
+    const result = splitTodoFlowForDate(source, 'todo-2', '2026-05-13');
+
+    expect(result).not.toBeNull();
+    expect(result?.detachedTodo.id).toBe('todo-2');
+    expect(result?.detachedTodo.scheduledDate).toBe('2026-05-13');
+    expect(result?.detachedTodo.scheduledDates).toBeUndefined();
+    expect(result?.detachedTodo.scheduleSlots).toEqual([
+      { dateKey: '2026-05-13', startTime: '09:00', endTime: '10:00' },
+    ]);
+    expect(result?.detachedTodo.taskCompleted).toBe(1);
+    expect(result?.detachedTodo.tasks['task-1'].status).toBe(TaskStatus.COMPLETED);
+    expect(result?.detachedTodo.timer).toBeNull();
+    expect(result?.detachedTodo.estimatedTimeTodo).toBe(3600);
+    expect(result?.originalTodo.id).toBe('todo-1');
+    expect(result?.originalTodo.scheduledDate).toBe('2026-05-14');
+    expect(result?.originalTodo.scheduledDates).toBeUndefined();
+    expect(result?.originalTodo.scheduleSlots).toEqual([
+      { dateKey: '2026-05-14', startTime: '11:00', endTime: '12:30' },
+    ]);
+    expect(result?.originalTodo.estimatedTimeTodo).toBe(5400);
+  });
+
+  it('can split a TodoFlow with new task ids so the detached copy is independent', () => {
+    const source = {
+      ...todo('todo-1', 'Shared plan'),
+      taskIds: ['task-1', 'task-2'],
+      tasks: {
+        'task-1': { ...task('task-1', 'First'), status: TaskStatus.PAUSED, actualTime: 30 },
+        'task-2': task('task-2', 'Second'),
+      },
+      currentTaskId: 'task-1',
+      scheduledDates: ['2026-05-13', '2026-05-14'],
+    };
+    let counter = 0;
+
+    const result = splitTodoFlowForDate(source, 'todo-2', '2026-05-13', () => `new-task-${++counter}`);
+
+    expect(result?.detachedTodo.taskIds).toEqual(['new-task-1', 'new-task-2']);
+    expect(result?.detachedTodo.currentTaskId).toBe('new-task-1');
+    expect(result?.detachedTodo.tasks['new-task-1'].id).toBe('new-task-1');
+    expect(result?.detachedTodo.tasks['new-task-1'].title).toBe('First');
+    expect(result?.detachedTodo.tasks['new-task-1'].status).toBe(TaskStatus.PAUSED);
+    expect(result?.detachedTodo.tasks['task-1']).toBeUndefined();
+  });
+
+  it('does not split a TodoFlow that only has one scheduled date', () => {
+    expect(splitTodoFlowForDate(todo('todo-1', 'Plan', '2026-05-13'), 'todo-2', '2026-05-13')).toBeNull();
+  });
+
+  it('filters manage items by search text and type/status', () => {
+    const scheduledTodo = {
+      ...todo('todo-1', 'Client plan', '2026-05-13'),
+      taskIds: ['task-1'],
+      tasks: { 'task-1': task('task-1', 'Draft proposal') },
+    };
+    const unscheduledTodo = todo('todo-2', 'Backlog');
+    const scheduledTask = task('task-1', 'Client email', '2026-05-13');
+
+    expect(filterManageItems([scheduledTodo, unscheduledTodo], [scheduledTask], 'proposal', 'all').todos).toEqual([
+      scheduledTodo,
+    ]);
+    expect(filterManageItems([scheduledTodo, unscheduledTodo], [scheduledTask], '', 'scheduled').todos).toEqual([
+      scheduledTodo,
+    ]);
+    expect(filterManageItems([scheduledTodo, unscheduledTodo], [scheduledTask], '', 'tasks').tasks).toEqual([
+      scheduledTask,
+    ]);
+    expect(filterManageItems([scheduledTodo, unscheduledTodo], [scheduledTask], '', 'unscheduled').todos).toEqual([
+      unscheduledTodo,
+    ]);
+  });
+
+  it('summarizes TodoFlow analytics from local TodoFlow data', () => {
+    const stats = getTodoFlowAnalytics(
+      [
+        {
+          ...todo('todo-1', 'Today plan', '2026-05-13'),
+          taskCompleted: 1,
+          taskTotal: 2,
+          status: TodoStatus.START_ON_PROGRESS,
+          actualTimeTodo: 120,
+          estimatedTimeTodo: 300,
+        },
+        {
+          ...todo('todo-2', 'Tomorrow plan', '2026-05-14'),
+          scheduledDates: ['2026-05-14', '2026-05-15'],
+          taskCompleted: 3,
+          taskTotal: 3,
+          actualTimeTodo: 600,
+          estimatedTimeTodo: 600,
+        },
+      ],
+      [task('task-1', 'Standalone', '2026-05-13')],
+      '2026-05-13'
+    );
+
+    expect(stats.totalTodoFlows).toBe(2);
+    expect(stats.scheduledDays).toBe(3);
+    expect(stats.todayTodoFlows).toBe(1);
+    expect(stats.completedTasks).toBe(4);
+    expect(stats.totalTasks).toBe(6);
+    expect(stats.inProgressTodoFlows).toBe(1);
+    expect(stats.plannedSeconds).toBe(1020);
+    expect(stats.actualSeconds).toBe(720);
+  });
+
   it('clears assignment when removing the last assigned date from a TodoFlow', () => {
     const updated = unsetTodoAssignedDate(todo('todo-1', 'Plan', '2026-05-13'), '2026-05-13');
 
@@ -255,6 +410,19 @@ describe('scheduleUtils', () => {
       '2026-05-14',
       '2026-05-15',
     ]);
+  });
+
+  it('toggles non-contiguous selected calendar dates in sorted order', () => {
+    expect(toggleDateKeySelection(['2026-05-15', '2026-05-13'], '2026-05-20')).toEqual([
+      '2026-05-13',
+      '2026-05-15',
+      '2026-05-20',
+    ]);
+    expect(toggleDateKeySelection(['2026-05-13', '2026-05-15'], '2026-05-13')).toEqual(['2026-05-15']);
+  });
+
+  it('keeps at least one selected calendar date when toggling', () => {
+    expect(toggleDateKeySelection(['2026-05-13'], '2026-05-13')).toEqual(['2026-05-13']);
   });
 
   it('returns due notification items that have not been notified today', () => {
@@ -324,6 +492,29 @@ describe('scheduleUtils', () => {
     expect(tasks.reduce((total, item) => total + item.estimatedTime, 0)).toBe(3700);
   });
 
+  it('rebalances non-break task estimates to match the selected duration', () => {
+    const synced = syncTodoTaskEstimatesWithDuration(
+      {
+        ...todo('todo-1', 'Plan'),
+        taskIds: ['task-1', 'break-1', 'task-2'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), estimatedTime: 300, actualTime: 20, status: TaskStatus.PAUSED },
+          'break-1': { ...task('break-1', 'Break'), estimatedTime: 600, isTaskBreak: true },
+          'task-2': { ...task('task-2', 'Second'), estimatedTime: 300 },
+        },
+      },
+      3601
+    );
+
+    expect(synced.tasks['task-1'].estimatedTime).toBe(1801);
+    expect(synced.tasks['task-2'].estimatedTime).toBe(1800);
+    expect(synced.tasks['break-1'].estimatedTime).toBe(600);
+    expect(synced.tasks['task-1'].actualTime).toBe(20);
+    expect(synced.tasks['task-1'].status).toBe(TaskStatus.PAUSED);
+    expect(synced.estimatedTimeTodo).toBe(3601);
+    expect(synced.taskTotal).toBe(2);
+  });
+
   it('detects overlapping schedule slots on the same date', () => {
     expect(
       hasOverlappingScheduleSlot(
@@ -343,6 +534,107 @@ describe('scheduleUtils', () => {
         ]
       )
     ).toBe(false);
+  });
+
+  it('returns Start for a TodoFlow with no progress', () => {
+    expect(getTodoFlowLaunchLabel(todo('todo-1', 'Plan'))).toBe('Start');
+  });
+
+  it('returns Resume for a TodoFlow with existing progress', () => {
+    expect(
+      getTodoFlowLaunchLabel({
+        ...todo('todo-1', 'Plan'),
+        taskIds: ['task-1'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), status: TaskStatus.PAUSED },
+        },
+        currentTaskId: 'task-1',
+      })
+    ).toBe('Resume');
+  });
+
+  it('detects whether a TodoFlow has actually been started', () => {
+    expect(hasTodoFlowStarted(todo('todo-1', 'Plan'))).toBe(false);
+    expect(
+      hasTodoFlowStarted({
+        ...todo('todo-1', 'Plan'),
+        status: TodoStatus.START_ON_PROGRESS,
+      })
+    ).toBe(true);
+    expect(
+      hasTodoFlowStarted({
+        ...todo('todo-1', 'Plan'),
+        taskIds: ['task-1'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), actualTime: 30 },
+        },
+      })
+    ).toBe(true);
+  });
+
+  it('resets TodoFlow progress and removes runtime break tasks', () => {
+    const reset = resetTodoFlowProgress({
+      ...todo('todo-1', 'Plan'),
+      status: TodoStatus.START_ON_PROGRESS,
+      currentTaskId: 'task-1',
+      timeLeft: 42,
+      actualTimeTodo: 90,
+      taskCompleted: 1,
+      taskTotal: 2,
+      taskIds: ['task-1', '000-break-break-1', 'task-2'],
+      tasks: {
+        'task-1': { ...task('task-1', 'First'), status: TaskStatus.COMPLETED, actualTime: 90 },
+        '000-break-break-1': { ...task('000-break-break-1', 'Break'), isTaskBreak: true, actualTime: 30 },
+        'task-2': { ...task('task-2', 'Second'), status: TaskStatus.PAUSED, actualTime: 20 },
+      },
+    });
+
+    expect(reset.status).toBe(TodoStatus.STOP);
+    expect(reset.currentTaskId).toBeUndefined();
+    expect(reset.timeLeft).toBe(0);
+    expect(reset.actualTimeTodo).toBe(0);
+    expect(reset.taskCompleted).toBe(0);
+    expect(reset.taskTotal).toBe(2);
+    expect(reset.taskIds).toEqual(['task-1', 'task-2']);
+    expect(reset.tasks['task-1'].status).toBe(TaskStatus.NOT_STARTED);
+    expect(reset.tasks['task-1'].actualTime).toBe(0);
+    expect(reset.tasks['task-2'].status).toBe(TaskStatus.NOT_STARTED);
+    expect(reset.tasks['task-2'].actualTime).toBe(0);
+    expect(reset.tasks['000-break-break-1']).toBeUndefined();
+  });
+
+  it('allows a schedule slot to end exactly at midnight', () => {
+    expect(secondsBetweenTimeStrings('23:30', '24:00')).toBe(1800);
+  });
+
+  it('rejects invalid times after midnight', () => {
+    expect(() => secondsBetweenTimeStrings('23:30', '24:15')).toThrow('Time must use HH:mm format');
+  });
+
+  it('rejects schedule slots before the current time on today', () => {
+    const now = new Date(2026, 4, 12, 10, 0);
+
+    expect(
+      isScheduleSlotSelectable(
+        { dateKey: '2026-05-12', startTime: '09:45', endTime: '10:15' },
+        now
+      )
+    ).toBe(false);
+    expect(
+      isScheduleSlotSelectable(
+        { dateKey: '2026-05-12', startTime: '10:00', endTime: '10:15' },
+        now
+      )
+    ).toBe(true);
+  });
+
+  it('allows future-day schedule slots regardless of current time', () => {
+    expect(
+      isScheduleSlotSelectable(
+        { dateKey: '2026-05-13', startTime: '09:00', endTime: '09:30' },
+        new Date(2026, 4, 12, 10, 0)
+      )
+    ).toBe(true);
   });
 
   it('calculates TodoFlow task estimated duration from non-break tasks', () => {
@@ -369,6 +661,16 @@ describe('scheduleUtils', () => {
     ).toEqual({ dateKey: '2026-05-13', startTime: '14:15', endTime: '15:45' });
   });
 
+  it('moves a schedule slot earlier when the requested start would cut off the duration at midnight', () => {
+    expect(
+      moveScheduleSlotPreservingDuration(
+        { dateKey: '2026-05-12', startTime: '09:00', endTime: '10:00' },
+        '2026-05-13',
+        '23:45'
+      )
+    ).toEqual({ dateKey: '2026-05-13', startTime: '23:00', endTime: '24:00' });
+  });
+
   it('moves an overlapping slot to continue after the overlapping TodoFlow', () => {
     expect(
       findAutoFitScheduleSlot(
@@ -388,5 +690,44 @@ describe('scheduleUtils', () => {
         [{ dateKey: '2026-05-12', startTime: '23:00', endTime: '23:45' }]
       )
     ).toEqual({ dateKey: '2026-05-12', startTime: '22:30', endTime: '23:00' });
+  });
+
+  it('auto-fits an overlapping slot to end exactly at midnight', () => {
+    expect(
+      findAutoFitScheduleSlot(
+        { dateKey: '2026-05-12', startTime: '23:00', endTime: '23:30' },
+        [{ dateKey: '2026-05-12', startTime: '22:45', endTime: '23:30' }]
+      )
+    ).toEqual({ dateKey: '2026-05-12', startTime: '23:30', endTime: '24:00' });
+  });
+
+  it('auto-fits a slot after the current time on today', () => {
+    expect(
+      findAutoFitScheduleSlot(
+        { dateKey: '2026-05-12', startTime: '09:00', endTime: '09:30' },
+        [],
+        { minStartTime: '10:00' }
+      )
+    ).toEqual({ dateKey: '2026-05-12', startTime: '10:00', endTime: '10:30' });
+  });
+
+  it('does not shorten a moved slot when the selected start would pass midnight', () => {
+    expect(
+      findAutoFitScheduleSlot(
+        { dateKey: '2026-05-12', startTime: '23:45', endTime: '24:00' },
+        [{ dateKey: '2026-05-12', startTime: '23:00', endTime: '23:30' }],
+        { durationSeconds: 3600 }
+      )
+    ).toEqual({ dateKey: '2026-05-12', startTime: '22:00', endTime: '23:00' });
+  });
+
+  it('moves a too-late slot earlier so the full duration ends at midnight', () => {
+    expect(
+      findAutoFitScheduleSlot(
+        { dateKey: '2026-05-12', startTime: '23:45', endTime: '24:00' },
+        [],
+        { durationSeconds: 3600 }
+      )
+    ).toEqual({ dateKey: '2026-05-12', startTime: '23:00', endTime: '24:00' });
   });
 });

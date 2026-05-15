@@ -4,6 +4,8 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import Dashboard from './Pages/Dashboard/Dashboard';
 import Manage from './Pages/Manage/Manage';
+import Analytics from './Pages/Analytics/Analytics';
+import AiFlow from './Pages/AiFlow/AiFlow';
 import Settings from './Pages/Setting/Settings';
 import DefaultLayout from './layouts/DefaultLayout';
 import Todoflow from './Pages/Todoflow/Todoflow';
@@ -108,6 +110,8 @@ function App() {
             <Route path="/" element={<DefaultLayout><Dashboard /></DefaultLayout>} />
             <Route path="/dashboard" element={<DefaultLayout><Dashboard /></DefaultLayout>} />
             <Route path="/manage" element={<DefaultLayout><Manage /></DefaultLayout>} />
+            <Route path="/analytics" element={<DefaultLayout><Analytics /></DefaultLayout>} />
+            <Route path="/ai" element={<DefaultLayout><AiFlow /></DefaultLayout>} />
             <Route path="/setting" element={<DefaultLayout><Settings /></DefaultLayout>} />
             <Route path="/todoflow" element={<DefaultLayout><Todoflow /></DefaultLayout>} />
             <Route path="/ontask" element={<DefaultLayout><OnTask /></DefaultLayout>} />

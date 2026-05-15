@@ -9,9 +9,11 @@ import {
   findAutoFitScheduleSlot,
   getTodoScheduleDateKeys,
   hasOverlappingScheduleSlot,
+  isScheduleSlotSelectable,
   moveScheduleSlotPreservingDuration,
   secondsBetweenTimeStrings,
   setTodoScheduleSlot,
+  syncTodoTaskEstimatesWithDuration,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
 
@@ -29,12 +31,17 @@ const minutesFromTime = (time: string): number => {
 
 const timeFromMinutes = (minutes: number): string => {
   const clamped = Math.max(0, Math.min(24 * 60, minutes));
+  if (clamped === 24 * 60) {
+    return '24:00';
+  }
   const hours = Math.floor(clamped / 60);
   const remainingMinutes = clamped % 60;
-  return `${String(Math.min(hours, 23)).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}`;
+  return `${String(hours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}`;
 };
 
 const snapMinutes = (minutes: number): number => Math.round(minutes / MINUTE_STEP) * MINUTE_STEP;
+
+const ceilToMinuteStep = (minutes: number): number => Math.ceil(minutes / MINUTE_STEP) * MINUTE_STEP;
 
 const getMinutesFromClientY = (clientY: number, container: HTMLElement): number => {
   const rect = container.getBoundingClientRect();
@@ -47,12 +54,28 @@ const getRange = (start: number, end: number) => ({
   end: Math.max(start, end),
 });
 
+const getScheduleSlotsDuration = (slots: ScheduleSlot[] = []): number =>
+  slots.reduce((total, slot) => total + secondsBetweenTimeStrings(slot.startTime, slot.endTime), 0);
+
 const parseDateKeys = (value: string | null): string[] => {
   const keys = (value || '')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
   return keys.length > 0 ? keys : [toDateKey(new Date())];
+};
+
+const getMinSelectableMinutes = (dateKey: string, now = new Date()): number => {
+  if (dateKey !== toDateKey(now)) {
+    return 0;
+  }
+
+  return Math.min(24 * 60, ceilToMinuteStep(now.getHours() * 60 + now.getMinutes()));
+};
+
+const getMinSelectableTime = (dateKey: string): string | undefined => {
+  const minMinutes = getMinSelectableMinutes(dateKey);
+  return minMinutes > 0 ? timeFromMinutes(minMinutes) : undefined;
 };
 
 const ScheduleEditor = () => {
@@ -67,7 +90,7 @@ const ScheduleEditor = () => {
   const [slotError, setSlotError] = useState('');
   const [dragState, setDragState] = useState<{
     dateKey: string;
-    edge: 'start' | 'end';
+    edge: 'start' | 'end' | 'move';
     startY: number;
     originalStartTime: string;
     originalEndTime: string;
@@ -115,15 +138,22 @@ const ScheduleEditor = () => {
 
       const originalStart = minutesFromTime(dragState.originalStartTime);
       const originalEnd = minutesFromTime(dragState.originalEndTime);
-      const minimumDuration = MINUTE_STEP;
+      const minimumDuration = getMinimumDurationSecondsForSlot(slot.dateKey) / 60;
       const nextStart =
-        dragState.edge === 'start'
+        dragState.edge === 'move'
+          ? Math.max(
+              getMinSelectableMinutes(slot.dateKey),
+              Math.min(24 * 60 - (originalEnd - originalStart), originalStart + deltaMinutes)
+            )
+          : dragState.edge === 'start'
           ? Math.min(originalEnd - minimumDuration, Math.max(0, originalStart + deltaMinutes))
           : originalStart;
       const nextEnd =
-        dragState.edge === 'end'
+        dragState.edge === 'move'
+          ? nextStart + (originalEnd - originalStart)
+          : dragState.edge === 'end'
           ? Math.max(
-              isCreateMode ? originalStart + minimumDuration : originalEnd,
+              originalStart + minimumDuration,
               Math.min(24 * 60, originalEnd + deltaMinutes)
             )
           : originalEnd;
@@ -134,6 +164,10 @@ const ScheduleEditor = () => {
         endTime: timeFromMinutes(nextEnd),
       };
       const otherSlots = busySlots.filter((busySlot) => busySlot.dateKey === nextSlot.dateKey);
+      if (!isScheduleSlotSelectable(nextSlot)) {
+        setSlotError('This time is no longer available today');
+        return;
+      }
       if (hasOverlappingScheduleSlot(nextSlot, otherSlots)) {
         setSlotError('This time overlaps with another TodoFlow');
         return;
@@ -187,6 +221,19 @@ const ScheduleEditor = () => {
   const busySlots = otherTodos.flatMap((item) =>
     (item.scheduleSlots || []).map((slot) => ({ ...slot, todoId: item.id, title: item.note || 'TodoFlow' }))
   );
+  const totalSelectedDuration = getScheduleSlotsDuration(todo?.scheduleSlots);
+  const initialTotalDuration = getScheduleSlotsDuration(initialScheduleSlots);
+
+  const getMinimumDurationSecondsForSlot = (dateKey: string): number => {
+    if (isCreateMode) {
+      return MINUTE_STEP * 60;
+    }
+
+    const otherSlotsDuration = getScheduleSlotsDuration(
+      (todo?.scheduleSlots || []).filter((slot) => slot.dateKey !== dateKey)
+    );
+    return Math.max(MINUTE_STEP * 60, initialTotalDuration - otherSlotsDuration);
+  };
 
   const applySelection = () => {
     if (!selection || !todo) return;
@@ -198,28 +245,45 @@ const ScheduleEditor = () => {
       return;
     }
 
-    const selectedSlots = [];
+    const selectedSlots: Array<{ slot: ScheduleSlot; durationSeconds: number }> = [];
     for (let index = dateRange.start; index <= dateRange.end; index += 1) {
       const targetDateKey = dateKeys[index];
       const existingSlot =
         !isCreateMode
           ? initialScheduleSlots.find((slot) => slot.dateKey === targetDateKey) || initialScheduleSlots[0]
           : undefined;
+      const durationSeconds = existingSlot
+        ? secondsBetweenTimeStrings(existingSlot.startTime, existingSlot.endTime)
+        : (minuteRange.end - minuteRange.start) * 60;
 
       selectedSlots.push(
-        existingSlot
-          ? moveScheduleSlotPreservingDuration(existingSlot, targetDateKey, timeFromMinutes(selection.startMinutes))
-          : {
-              dateKey: targetDateKey,
-              startTime: timeFromMinutes(minuteRange.start),
-              endTime: timeFromMinutes(minuteRange.end),
-            }
+        {
+          slot: existingSlot
+            ? moveScheduleSlotPreservingDuration(existingSlot, targetDateKey, timeFromMinutes(selection.startMinutes))
+            : {
+                dateKey: targetDateKey,
+                startTime: timeFromMinutes(minuteRange.start),
+                endTime: timeFromMinutes(minuteRange.end),
+              },
+          durationSeconds,
+        }
       );
     }
 
-    const fittedSlots = selectedSlots.map((slot) =>
-      hasOverlappingScheduleSlot(slot, busySlots) ? findAutoFitScheduleSlot(slot, busySlots) : slot
-    );
+    const fittedSlots = selectedSlots.map(({ slot, durationSeconds }) => {
+      const selectedDurationSeconds = secondsBetweenTimeStrings(slot.startTime, slot.endTime);
+      const needsFit =
+        selectedDurationSeconds !== durationSeconds ||
+        !isScheduleSlotSelectable(slot) ||
+        hasOverlappingScheduleSlot(slot, busySlots);
+
+      return needsFit
+        ? findAutoFitScheduleSlot(slot, busySlots, {
+            durationSeconds,
+            minStartTime: getMinSelectableTime(slot.dateKey),
+          })
+        : slot;
+    });
 
     if (fittedSlots.some((slot): slot is null => slot === null)) {
       setSlotError('No available time left for this TodoFlow on the selected day');
@@ -237,11 +301,6 @@ const ScheduleEditor = () => {
     setTodo(nextTodo);
     setSelection(null);
   };
-
-  const totalSelectedDuration = (todo?.scheduleSlots || []).reduce(
-    (total, slot) => total + secondsBetweenTimeStrings(slot.startTime, slot.endTime),
-    0
-  );
 
   const ensureDefaultTasks = (nextTodo: TodoFlow): TodoFlow => {
     if (nextTodo.taskIds.length > 0) {
@@ -269,11 +328,25 @@ const ScheduleEditor = () => {
       setSlotError('Choose at least one time slot');
       return;
     }
+    if (todo.scheduleSlots.some((slot) => !isScheduleSlotSelectable(slot))) {
+      setSlotError('Choose a time that is not in the past');
+      return;
+    }
+    if (!isCreateMode && totalSelectedDuration < initialTotalDuration) {
+      setSlotError('TodoFlow total time can only stay the same or be extended');
+      return;
+    }
 
     try {
-      const nextTodo = ensureDefaultTasks(todo);
+      const nextTodo = syncTodoTaskEstimatesWithDuration(ensureDefaultTasks(todo), totalSelectedDuration);
       nextTodo.scheduleSlots?.forEach((slot) => secondsBetweenTimeStrings(slot.startTime, slot.endTime));
       await window.electronAPI.todoUpsert(withoutRuntimeTimer(nextTodo));
+      for (const taskId of nextTodo.taskIds) {
+        const task = nextTodo.tasks[taskId];
+        if (task) {
+          await window.electronAPI.taskUpsert(task);
+        }
+      }
       await window.electronAPI.completeScheduleEditor({
         todo: withoutRuntimeTimer(nextTodo),
         mode: isCreateMode ? 'create' : 'edit',
@@ -344,28 +417,39 @@ const ScheduleEditor = () => {
             <div key={dateKey} className="schedule-editor-day-column">
               <div className="schedule-editor-day-heading">{dateKey}</div>
               <div className="schedule-editor-hours" data-date-index={dateKeys.indexOf(dateKey)}>
-                {HOURS.map((hour) => (
-                  <button
-                    key={`${dateKey}-${hour}`}
-                    className="schedule-editor-hour-cell"
-                    onMouseDown={(event) => {
-                      const container = event.currentTarget.parentElement;
-                      if (!container) return;
-                      const startMinutes = getMinutesFromClientY(event.clientY, container);
-                      const startDateIndex = dateKeys.indexOf(dateKey);
-                      setSelection({
-                        startDateIndex,
-                        endDateIndex: startDateIndex,
-                        startMinutes,
-                        endMinutes: Math.min(24 * 60, startMinutes + MINUTE_STEP),
-                      });
-                    }}
-                    onMouseEnter={() => {
-                      if (!selection) return;
-                      setSelection({ ...selection, endDateIndex: dateKeys.indexOf(dateKey) });
-                    }}
-                  />
-                ))}
+                {HOURS.map((hour) => {
+                  const hourStartMinutes = minutesFromTime(hour);
+                  const hourEndMinutes = hourStartMinutes + 60;
+                  const isHourUnavailable = hourEndMinutes <= getMinSelectableMinutes(dateKey);
+
+                  return (
+                    <button
+                      key={`${dateKey}-${hour}`}
+                      className={`schedule-editor-hour-cell ${isHourUnavailable ? 'disabled' : ''}`}
+                      disabled={isHourUnavailable}
+                      onMouseDown={(event) => {
+                        if (isHourUnavailable) return;
+                        const container = event.currentTarget.parentElement;
+                        if (!container) return;
+                        const startMinutes = Math.max(
+                          getMinutesFromClientY(event.clientY, container),
+                          getMinSelectableMinutes(dateKey)
+                        );
+                        const startDateIndex = dateKeys.indexOf(dateKey);
+                        setSelection({
+                          startDateIndex,
+                          endDateIndex: startDateIndex,
+                          startMinutes,
+                          endMinutes: Math.min(24 * 60, startMinutes + MINUTE_STEP),
+                        });
+                      }}
+                      onMouseEnter={() => {
+                        if (!selection || isHourUnavailable) return;
+                        setSelection({ ...selection, endDateIndex: dateKeys.indexOf(dateKey) });
+                      }}
+                    />
+                  );
+                })}
                 {selection && (() => {
                   const dateRange = getRange(selection.startDateIndex, selection.endDateIndex);
                   const minuteRange = isCreateMode
@@ -376,9 +460,10 @@ const ScheduleEditor = () => {
                         const durationMinutes = existingSlot
                           ? secondsBetweenTimeStrings(existingSlot.startTime, existingSlot.endTime) / 60
                           : Math.max(MINUTE_STEP, getRange(selection.startMinutes, selection.endMinutes).end - selection.startMinutes);
+                        const start = Math.max(0, Math.min(selection.startMinutes, 24 * 60 - durationMinutes));
                         return {
-                          start: selection.startMinutes,
-                          end: Math.min(24 * 60, selection.startMinutes + durationMinutes),
+                          start,
+                          end: Math.min(24 * 60, start + durationMinutes),
                         };
                       })();
                   if (dateKeys.indexOf(dateKey) < dateRange.start || dateKeys.indexOf(dateKey) > dateRange.end) {
@@ -403,6 +488,16 @@ const ScheduleEditor = () => {
                       <div
                         key={`${slot.dateKey}-${slot.startTime}`}
                         className="schedule-editor-slot"
+                        onMouseDown={(event) => {
+                          event.stopPropagation();
+                          setDragState({
+                            dateKey,
+                            edge: 'move',
+                            startY: event.clientY,
+                            originalStartTime: slot.startTime,
+                            originalEndTime: slot.endTime,
+                          });
+                        }}
                         style={{
                           top: `${(startMinutes / 60) * HOUR_HEIGHT}px`,
                           height: `${(durationMinutes / 60) * HOUR_HEIGHT}px`,

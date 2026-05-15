@@ -7,6 +7,7 @@ import { useAppSelector, useAppDispatch } from "~/ui/store/hooks";
 import { 
   initializeTodoFlow, 
   addTask,
+  setTodo,
   setTodoStatus,
   setNote,
   setStopTimer,
@@ -31,7 +32,13 @@ import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
 import InputHandler from '~/ui/components/InputHandler/InputHandler';
-import { getTodoScheduleDateKeys } from '~/ui/helpers/utils/scheduleUtils';
+import {
+  getTodoScheduleDateKeys,
+  hasTodoFlowStarted,
+  resetTodoFlowProgress,
+  splitTodoFlowForDate,
+  toDateKey,
+} from '~/ui/helpers/utils/scheduleUtils';
 
 const Todoflow = () => {
   const navigate = useNavigate();
@@ -40,12 +47,25 @@ const Todoflow = () => {
   const { info, notify } = useAlert();
   const todoFlow = useAppSelector((state) => state.todoflow);
   const containerTaskDiv = useRef<(HTMLDivElement | null)>(null);
+  const entryPromptShownRef = useRef(false);
+  const [showEntryPrompt, setShowEntryPrompt] = useState(false);
+  const isInitializingRef = useRef(true);
   const [noteError, setNoteError] = useState<string>('');
   const [triggerTaskValidation, setTriggerTaskValidation] = useState<boolean>(false);
   const [isNewTodo, setIsNewTodo] = useState<boolean>(true);
   const soundPlayer = SoundPlayer.getInstance();
-  const isCreateMode = (location.state as { mode?: string } | null)?.mode === 'create';
+  const routeState = location.state as { mode?: string; fromDashboard?: boolean; dateKey?: string } | null;
+  const isCreateMode = routeState?.mode === 'create';
+  const isFromDashboard = routeState?.fromDashboard === true;
   const assignedDateKeys = getTodoScheduleDateKeys(todoFlow);
+  const todayKey = toDateKey(new Date());
+  const activeDateKey =
+    routeState?.dateKey && assignedDateKeys.includes(routeState.dateKey)
+      ? routeState.dateKey
+      : assignedDateKeys.includes(todayKey)
+        ? todayKey
+        : assignedDateKeys[0];
+  const canDetachTodoFlow = !isCreateMode && assignedDateKeys.length > 1 && Boolean(activeDateKey);
 
   useEffect(() =>{
     const handleToResize = async () => {
@@ -61,6 +81,12 @@ const Todoflow = () => {
     const fetchAndInitialize = async () => {
       if (todoFlow.id) {
         setIsNewTodo(isCreateMode);
+        if (isFromDashboard && hasTodoFlowStarted(todoFlow) && !entryPromptShownRef.current) {
+          entryPromptShownRef.current = true;
+          setShowEntryPrompt(true);
+          await window.electronAPI.setWindowAlwaysOnTop('main', true);
+          return;
+        }
         if (todoFlow.status === TodoStatus.START_ON_TODO && todoFlow.currentTaskId && todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS) {
           dispatch(setStartTimer(setInterval(() => {
              dispatch(setTimeLeft(undefined));
@@ -78,6 +104,79 @@ const Todoflow = () => {
       dispatch(setStopTimer());
     }
   }, []);
+
+  useEffect(() => {
+    isInitializingRef.current = false;
+  }, []);
+
+  const getPersistableTodoFlow = (todo: TodoFlow): TodoFlow => ({
+    ...todo,
+    timer: null,
+  });
+
+  const persistTodoFlow = async (todo: TodoFlow = todoFlow) => {
+    if (!todo.id || !todo.note.trim()) return;
+
+    try {
+      const persistableTodo = getPersistableTodoFlow(todo);
+      await window.electronAPI.todoUpsert(persistableTodo);
+      for (const taskId of persistableTodo.taskIds) {
+        const task = persistableTodo.tasks[taskId];
+        if (task) {
+          await window.electronAPI.taskUpsert(task);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to persist todo state:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isInitializingRef.current || showEntryPrompt || isCreateMode) {
+      return;
+    }
+    if (!todoFlow.id || !todoFlow.note.trim()) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      persistTodoFlow();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    todoFlow.id,
+    todoFlow.note,
+    todoFlow.status,
+    todoFlow.taskCompleted,
+    todoFlow.taskTotal,
+    todoFlow.estimatedTimeTodo,
+    todoFlow.actualTimeTodo,
+    todoFlow.currentTaskId,
+    todoFlow.timeLeft,
+    todoFlow.taskIds,
+    todoFlow.tasks,
+    showEntryPrompt,
+    isCreateMode,
+  ]);
+
+  const resumeTodoFlowEntry = async () => {
+    setShowEntryPrompt(false);
+    if (todoFlow.status === TodoStatus.START_ON_TODO && todoFlow.currentTaskId && todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS) {
+      dispatch(setStartTimer(setInterval(() => {
+         dispatch(setTimeLeft(undefined));
+      }, 1000)));
+    }
+    await window.electronAPI.setWindowAlwaysOnTop('main', true);
+  };
+
+  const resetTodoFlowEntry = async () => {
+    const resetTodo = resetTodoFlowProgress(todoFlow);
+    dispatch(setResetTodoFlow());
+    await persistTodoFlow(resetTodo);
+    setShowEntryPrompt(false);
+    await window.electronAPI.setWindowAlwaysOnTop('main', true);
+  };
 
   useEffect(() =>{
     const handleByStatusChange = async () => {
@@ -224,22 +323,51 @@ const Todoflow = () => {
     }
     soundPlayer.play(SoundType.SOUND_GAMBUSTA);
     dispatch(setTodoStatus(TodoStatus.START_ON_PROGRESS));
-    handleTodoCreation();
+    handleTodoCreation({ ...todoFlow, status: TodoStatus.START_ON_PROGRESS });
   };
 
-  const handleTodoCreation = async () => {
+  const handleTodoCreation = async (todo: TodoFlow = todoFlow) => {
     try {
-      await window.electronAPI.todoUpsert(todoFlow);
-      let tasksArray = todoFlow.taskIds;
+      const persistableTodo = getPersistableTodoFlow(todo);
+      await window.electronAPI.todoUpsert(persistableTodo);
+      let tasksArray = persistableTodo.taskIds;
 
       for (const taskId of tasksArray) {
-        const task = todoFlow.tasks[taskId];
+        const task = persistableTodo.tasks[taskId];
         await window.electronAPI.taskUpsert(task);
       }
       
     } catch (error) {
       console.error('Failed to save todo:', error);
       info('Failed to save todo');
+    }
+  };
+
+  const handleDetachTodoFlow = async () => {
+    if (!activeDateKey) return;
+
+    const result = splitTodoFlowForDate(todoFlow, generateId(), activeDateKey, () => generateId());
+    if (!result) {
+      info('This TodoFlow cannot be detached.');
+      return;
+    }
+
+    try {
+      await window.electronAPI.todoUpsert(result.originalTodo);
+      await window.electronAPI.todoUpsert(result.detachedTodo);
+      for (const taskId of result.detachedTodo.taskIds) {
+        const task = result.detachedTodo.tasks[taskId];
+        if (task) {
+          await window.electronAPI.taskUpsert(task);
+        }
+      }
+      dispatch(setTodo(result.detachedTodo));
+      setIsNewTodo(false);
+      navigate('/todoflow', { replace: true, state: { mode: 'edit', dateKey: activeDateKey } });
+      info('TodoFlow detached for this day.');
+    } catch (error) {
+      console.error('Failed to detach TodoFlow:', error);
+      info('Failed to detach TodoFlow');
     }
   };
 
@@ -275,7 +403,16 @@ const Todoflow = () => {
           </div>
         </div>
         <div className='flex items-center gap-1'>
-          <button className="btn btn-icon" onClick={() => {dispatch(setResetTodoFlow())}}>
+          {canDetachTodoFlow && (
+            <button className="btn btn-secondary h-[30px] px-3 text-sm" onClick={handleDetachTodoFlow}>
+              Detach
+            </button>
+          )}
+          <button className="btn btn-icon" onClick={async () => {
+            const resetTodo = resetTodoFlowProgress(todoFlow);
+            dispatch(setResetTodoFlow());
+            await persistTodoFlow(resetTodo);
+          }}>
             <RiResetLeftLine />
           </button>
           {
@@ -411,6 +548,24 @@ const Todoflow = () => {
         <IoMdArrowRoundUp />
       </button>
       <InputHandler />
+      {showEntryPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 no-drag">
+          <div className="card w-[min(360px,calc(100vw-32px))] p-5">
+            <h2 className="text-xl font-bold text-highlight">Open TodoFlow</h2>
+            <p className="mt-3 text-sm text-gray-400">
+              Resume the current TodoFlow state or reset its progress before starting again.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button className="btn btn-primary flex-1 h-[38px]" onClick={resumeTodoFlowEntry}>
+                Resume
+              </button>
+              <button className="btn btn-secondary flex-1 h-[38px]" onClick={resetTodoFlowEntry}>
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

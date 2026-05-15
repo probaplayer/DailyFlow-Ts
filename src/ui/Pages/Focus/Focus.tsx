@@ -35,6 +35,28 @@ const Focus = () => {
     notify
   } = useAlert();
 
+  const getPersistableTodo = (nextTodo: TodoFlow): TodoFlow => ({
+    ...nextTodo,
+    timer: null,
+  });
+
+  const persistTodo = async (nextTodo: TodoFlow = todo) => {
+    if (!nextTodo.id || !nextTodo.note.trim()) return;
+
+    try {
+      const persistableTodo = getPersistableTodo(nextTodo);
+      await window.electronAPI.todoUpsert(persistableTodo);
+      for (const taskId of persistableTodo.taskIds) {
+        const task = persistableTodo.tasks[taskId];
+        if (task) {
+          await window.electronAPI.taskUpsert(task);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to persist todo:', err);
+    }
+  };
+
   useEffect(() => {
     const getHeadTask = async () => {
       if (!todo) {
@@ -96,7 +118,7 @@ const Focus = () => {
     const handleUpdateTodo = async () => {
       if (todo) {
         try {
-          await window.electronAPI.todoUpdate(todo.id, todo);
+          await persistTodo();
           if (todo.status === TodoStatus.STOP || todo.status === TodoStatus.START_ON_TODO) {
             handleToWinOnTop(false);
             navigate(`/todoflow`);
@@ -108,6 +130,28 @@ const Focus = () => {
     }
     handleUpdateTodo();
   }, [todo.status]);
+
+  useEffect(() => {
+    if (!todo.id || !todo.note.trim()) return;
+
+    const timeoutId = window.setTimeout(() => {
+      persistTodo();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    todo.id,
+    todo.note,
+    todo.status,
+    todo.taskCompleted,
+    todo.taskTotal,
+    todo.estimatedTimeTodo,
+    todo.actualTimeTodo,
+    todo.currentTaskId,
+    todo.timeLeft,
+    todo.taskIds,
+    todo.tasks,
+  ]);
 
   useEffect(() => {
     const handleToResize = async () => {

@@ -152,6 +152,28 @@
   background: var(--bg-tertiary);
 }
 
+.schedule-editor-hour-cell.disabled {
+  cursor: not-allowed !important;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bg-secondary),
+    var(--bg-secondary) 8px,
+    var(--bg-primary) 8px,
+    var(--bg-primary) 16px
+  );
+  opacity: 0.45;
+}
+
+.schedule-editor-hour-cell.disabled:hover {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bg-secondary),
+    var(--bg-secondary) 8px,
+    var(--bg-primary) 8px,
+    var(--bg-primary) 16px
+  );
+}
+
 .schedule-editor-slot {
   position: absolute;
   left: 8px;
@@ -168,6 +190,7 @@
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.92), rgba(118, 75, 162, 0.92));
   color: white;
   box-shadow: 0 8px 20px var(--shadow-color);
+  cursor: move !important;
   overflow: hidden;
 }
 

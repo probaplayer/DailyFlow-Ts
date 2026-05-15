@@ -6,13 +6,12 @@ import {
   IoMoonOutline, 
   IoSunnyOutline, 
   IoHomeOutline,
-  IoListOutline
+  IoListOutline,
+  IoBarChartOutline,
+  IoSparklesOutline
 } from "react-icons/io5";
 import { RiShutDownLine } from "react-icons/ri";
-import { FaTasks } from "react-icons/fa";
 import './DefaultLayout.css';
-import { useAppDispatch } from '../store/hooks';
-import { initializeTodoFlow } from '../store/todo/todoSlice';
 import { useAlert } from '../helpers/hooks/useAlert';
 
 interface DefaultLayoutProps {
@@ -22,7 +21,6 @@ interface DefaultLayoutProps {
 const DefaultLayout = ({ children }: DefaultLayoutProps) => {
   const navigate = useNavigate();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
-  const dispatch = useAppDispatch();
   const { 
       ask, 
   } = useAlert();
@@ -31,17 +29,17 @@ const DefaultLayout = ({ children }: DefaultLayoutProps) => {
     <div className="layout-container">
       <nav className="drag-area sidebar">
         <div className="nav-top">
-          <button className="btn btn-icon" onClick={() => navigate('/dashboard')}>
+          <button className="btn btn-icon" title="Dashboard" onClick={() => navigate('/dashboard')}>
             <IoHomeOutline />
           </button>
-          <button className="btn btn-primary h-[25px]" onClick={() => {
-            dispatch(initializeTodoFlow({ id: '' }));
-            navigate('/todoflow', { state: { mode: 'create' } })
-          }}>
-            <FaTasks />
-          </button>
-          <button className="btn btn-icon" onClick={() => navigate('/manage')}>
+          <button className="btn btn-primary h-[32px]" title="Manage TodoFlow" onClick={() => navigate('/manage')}>
             <IoListOutline />
+          </button>
+          <button className="btn btn-icon" title="Analytics" onClick={() => navigate('/analytics')}>
+            <IoBarChartOutline />
+          </button>
+          <button className="btn btn-icon" title="AI" onClick={() => navigate('/ai')}>
+            <IoSparklesOutline />
           </button>
         </div>
         <div className="nav-bottom">

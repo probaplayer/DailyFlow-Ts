@@ -9,12 +9,14 @@ import {
   buildMonthDays,
   getDueNotificationItems,
   getDueSlotNotificationItems,
+  getTodoFlowLaunchLabel,
   groupScheduledItemsByDate,
   groupScheduledItemsForDateRange,
   type DueSlotNotificationItem,
   isPastDateKey,
   listDateKeysBetween,
   secondsBetweenTimeStrings,
+  toggleDateKeySelection,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
 
@@ -77,9 +79,9 @@ const Dashboard = () => {
     setDayMenu(null);
   };
 
-  const openTodo = (todo: TodoFlow) => {
+  const openTodo = (todo: TodoFlow, dateKey?: string) => {
     dispatch(setTodo(withoutRuntimeTimer(todo)));
-    navigate('/todoflow');
+    navigate('/todoflow', { state: { fromDashboard: true, dateKey } });
   };
 
   useEffect(() => {
@@ -157,6 +159,13 @@ const Dashboard = () => {
     setSelectedDateKeys(nextRange);
   };
 
+  const toggleSelectedDate = (dateKey: string) => {
+    const nextSelection = toggleDateKeySelection(selectedDateKeys, dateKey);
+    setSelectedDateKey(dateKey);
+    setSelectedDateKeys(nextSelection.filter((key) => !isPastDateKey(key)));
+    setRangeStartDateKey(dateKey);
+  };
+
   const selectedDateCount = selectedDateKeys.length;
   const selectedLabel =
     selectedDateCount > 1
@@ -216,11 +225,14 @@ const Dashboard = () => {
                   <div className="dashboard-selection-meta">{dateKeys.join(', ')}</div>
                   {renderSlotSummary(slots)}
                 </div>
-                <button className="btn btn-primary btn-sm w-full mt-2" onClick={() => openScheduleEditor({ todoId: todo.id, dateKeys })}>
-                  Open editor
+                <button
+                  className="btn btn-primary btn-sm w-full mt-2"
+                  onClick={() => openTodo(todo, dateKeys.includes(selectedDateKey) ? selectedDateKey : dateKeys[0])}
+                >
+                  {getTodoFlowLaunchLabel(todo)}
                 </button>
-                <button className="btn btn-secondary btn-sm w-full mt-2" onClick={() => openTodo(todo)}>
-                  Open TodoFlow
+                <button className="btn btn-secondary btn-sm w-full mt-2" onClick={() => openScheduleEditor({ todoId: todo.id, dateKeys })}>
+                  Open editor
                 </button>
               </div>
             ))
@@ -249,6 +261,13 @@ const Dashboard = () => {
                   disabled={isPastDay}
                   onMouseDown={(event) => {
                     if (isPastDay) return;
+                    if (event.ctrlKey || event.metaKey) {
+                      toggleSelectedDate(day.dateKey);
+                      setIsSelectingDates(false);
+                      openDayMenu(event.currentTarget, day.dateKey);
+                      return;
+                    }
+
                     if (event.shiftKey) {
                       selectDateRange(day.dateKey);
                       openDayMenu(event.currentTarget, day.dateKey);
