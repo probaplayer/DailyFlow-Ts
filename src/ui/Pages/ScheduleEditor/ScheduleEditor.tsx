@@ -7,6 +7,7 @@ import {
   createDefaultTasksForSchedule,
   createScheduledTodoFlow,
   findAutoFitScheduleSlot,
+  formatDateKeyList,
   getTodoScheduleDateKeys,
   hasOverlappingScheduleSlot,
   isScheduleSlotSelectable,
@@ -393,7 +394,7 @@ const ScheduleEditor = () => {
           />
         </label>
         <div className="schedule-editor-summary">
-          {assignedDateKeys.length > 0 ? assignedDateKeys.join(', ') : 'No time selected'}
+          {formatDateKeyList(assignedDateKeys)}
         </div>
       </section>
 

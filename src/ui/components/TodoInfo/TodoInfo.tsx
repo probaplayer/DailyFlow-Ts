@@ -1,6 +1,6 @@
 import { calculateProgressWidth, formatTime } from "~/ui/helpers/utils/utils";
 import { MdDeleteForever } from "react-icons/md";
-import { getTodoScheduleDateKeys } from "~/ui/helpers/utils/scheduleUtils";
+import { formatDateKeyList, getTodoScheduleDateKeys } from "~/ui/helpers/utils/scheduleUtils";
 
 interface TodoInfoProps {
   todo: TodoFlow;
@@ -42,7 +42,7 @@ const TodoInfo = ({ todo, onMakeTodo, className, onDeleted }: TodoInfoProps) => 
       {assignedDateKeys.length > 0 && (
         <div className="flex justify-between text-sm mt-1 gap-2">
           <p>Assigned:</p>
-          <p className="text-right">{slotLabels.length > 0 ? slotLabels.join(', ') : assignedDateKeys.join(', ')}</p>
+          <p className="text-right">{slotLabels.length > 0 ? slotLabels.join(' | ') : formatDateKeyList(assignedDateKeys)}</p>
         </div>
       )}
       <button className="btn btn-primary btn-sm w-full mt-3" onClick={() => onMakeTodo(todo)}>Make it my Todo for today!</button>

@@ -33,6 +33,7 @@ import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
 import InputHandler from '~/ui/components/InputHandler/InputHandler';
 import {
+  formatDateKeyList,
   getTodoScheduleDateKeys,
   hasTodoFlowStarted,
   resetTodoFlowProgress,
@@ -396,7 +397,7 @@ const Todoflow = () => {
               {noteError && <p className="text-red-500 text-sm mt-1">{noteError}</p>}
               {assignedDateKeys.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Assigned: {assignedDateKeys.join(', ')}
+                  Assigned: {formatDateKeyList(assignedDateKeys)}
                 </p>
               )}
             </div>

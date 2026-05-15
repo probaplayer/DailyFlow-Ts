@@ -4,6 +4,7 @@ import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   createAiTodoFlowAnalysisPrompt,
   createAiTodoFlowPrompt,
+  formatDateKeyList,
   getTodoFlowAnalytics,
   getTodoScheduleDateKeys,
 } from '~/ui/helpers/utils/scheduleUtils';
@@ -281,7 +282,7 @@ const AiFlow = () => {
           {recentTodos.map((todo) => (
             <div key={todo.id} className="ai-recent-item">
               <strong>{todo.note || 'TodoFlow'}</strong>
-              <span>{getTodoScheduleDateKeys(todo).join(', ') || 'Unscheduled'}</span>
+              <span>{formatDateKeyList(getTodoScheduleDateKeys(todo), 'Unscheduled')}</span>
             </div>
           ))}
         </div>

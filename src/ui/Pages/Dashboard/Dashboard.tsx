@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   buildMonthDays,
+  formatDateKeyList,
   getDueNotificationItems,
   getDueSlotNotificationItems,
   getTodoFlowLaunchLabel,
@@ -222,7 +223,7 @@ const Dashboard = () => {
               <div key={todo.id} className="dashboard-scheduled-item">
                 <div className="dashboard-readonly-card">
                   <div className="dashboard-readonly-title">{todo.note || 'TodoFlow'}</div>
-                  <div className="dashboard-selection-meta">{dateKeys.join(', ')}</div>
+                  <div className="dashboard-selection-meta">{formatDateKeyList(dateKeys)}</div>
                   {renderSlotSummary(slots)}
                 </div>
                 <button

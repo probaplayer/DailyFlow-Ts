@@ -9,6 +9,7 @@ import {
   createAiTodoFlowPrompt,
   createAiTodoFlowAnalysisPrompt,
   filterManageItems,
+  formatDateKeyList,
   findAutoFitScheduleSlot,
   getTodoFlowAnalytics,
   getScheduleSlotForDate,
@@ -450,6 +451,14 @@ describe('scheduleUtils', () => {
       '2026-05-20',
     ]);
     expect(toggleDateKeySelection(['2026-05-13', '2026-05-15'], '2026-05-13')).toEqual(['2026-05-15']);
+  });
+
+  it('formats selected date keys without a comma-joined string', () => {
+    expect(formatDateKeyList(['2026-05-13'])).toBe('2026-05-13');
+    expect(formatDateKeyList(['2026-05-13', '2026-05-15', '2026-05-20'])).toBe(
+      '2026-05-13 | 2026-05-15 | 2026-05-20'
+    );
+    expect(formatDateKeyList([])).toBe('No time selected');
   });
 
   it('keeps at least one selected calendar date when toggling', () => {

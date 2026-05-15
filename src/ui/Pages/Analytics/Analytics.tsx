@@ -5,6 +5,7 @@ import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
   getTodoFlowAnalytics,
   getTodoScheduleDateKeys,
+  formatDateKeyList,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
 import { formatTime } from '~/ui/helpers/utils/utils';
@@ -104,7 +105,7 @@ const Analytics = () => {
               {upcomingTodos.map((todo) => (
                 <div key={todo.id} className="analytics-list-item">
                   <strong>{todo.note || 'TodoFlow'}</strong>
-                  <span>{getTodoScheduleDateKeys(todo).join(', ') || 'Unscheduled'}</span>
+                  <span>{formatDateKeyList(getTodoScheduleDateKeys(todo), 'Unscheduled')}</span>
                 </div>
               ))}
             </div>

@@ -63,11 +63,11 @@ function buildTodoFlowContext(todos: TodoFlow[], tasks: Task[], todayKey: string
   const stats = getTodoFlowAnalytics(todos, tasks, todayKey);
   const completionRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
   const todoLines = todos.slice(0, 12).map((todo) => {
-    const dateText = getTodoScheduleDateKeys(todo).join(', ') || 'unscheduled';
+    const dateText = formatDateKeyList(getTodoScheduleDateKeys(todo), 'unscheduled');
     return `- TodoFlow: ${todo.note || 'Untitled'} | dates: ${dateText} | tasks: ${todo.taskCompleted}/${todo.taskTotal} | planned: ${formatSecondsForPrompt(todo.estimatedTimeTodo || 0)} | actual: ${formatSecondsForPrompt(todo.actualTimeTodo || 0)}`;
   });
   const taskLines = tasks.slice(0, 12).map((task) => {
-    const dateText = getTaskScheduleDateKeys(task).join(', ') || 'unscheduled';
+    const dateText = formatDateKeyList(getTaskScheduleDateKeys(task), 'unscheduled');
     return `- Task: ${task.title || 'Untitled'} | date: ${dateText} | status: ${task.status} | planned: ${formatSecondsForPrompt(task.estimatedTime || 0)} | actual: ${formatSecondsForPrompt(task.actualTime || 0)}`;
   });
 
@@ -132,6 +132,15 @@ export function toDateKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function formatDateKeyList(dateKeys: string[], emptyText = 'No time selected'): string {
+  const uniqueDateKeys = uniqueSortedDateKeys(dateKeys);
+  if (uniqueDateKeys.length === 0) {
+    return emptyText;
+  }
+
+  return uniqueDateKeys.join(' | ');
 }
 
 function parseDateKey(dateKey: string): Date {
