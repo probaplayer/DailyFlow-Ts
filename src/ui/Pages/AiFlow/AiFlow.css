@@ -12,6 +12,26 @@
   margin-bottom: 12px;
 }
 
+.ai-config {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1fr) minmax(220px, 1.6fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.ai-config label {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 0.84rem;
+  margin-bottom: 4px;
+}
+
+.ai-config button {
+  white-space: nowrap;
+}
+
 .ai-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -42,6 +62,12 @@
   min-height: 216px;
 }
 
+.ai-status {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  margin-bottom: 8px;
+}
+
 .ai-result {
   white-space: pre-wrap;
   color: var(--text-primary);
@@ -54,7 +80,7 @@
 }
 
 .ai-context {
-  height: calc(100% - 304px);
+  height: calc(100% - 380px);
   min-height: 0;
   overflow-y: auto;
 }
@@ -104,6 +130,7 @@
     overflow-y: auto;
   }
 
+  .ai-config,
   .ai-grid,
   .ai-context-grid {
     grid-template-columns: 1fr;

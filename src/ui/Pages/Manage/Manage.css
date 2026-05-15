@@ -25,11 +25,9 @@
   flex: 1;
 }
 
-.manage-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+.manage-filter-select {
+  max-width: 190px;
+  min-width: 160px;
 }
 
 .manage-grid {
@@ -73,7 +71,7 @@
     flex-direction: column;
   }
 
-  .manage-filters {
-    justify-content: flex-start;
+  .manage-filter-select {
+    max-width: none;
   }
 }

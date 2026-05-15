@@ -6,6 +6,8 @@ import {
   createDefaultTasksForSchedule,
   createScheduledTodoFlow,
   createTodoFlowFromTask,
+  createAiTodoFlowPrompt,
+  createAiTodoFlowAnalysisPrompt,
   filterManageItems,
   findAutoFitScheduleSlot,
   getTodoFlowAnalytics,
@@ -388,6 +390,35 @@ describe('scheduleUtils', () => {
     expect(stats.inProgressTodoFlows).toBe(1);
     expect(stats.plannedSeconds).toBe(1020);
     expect(stats.actualSeconds).toBe(720);
+  });
+
+  it('creates an AI analysis prompt with TodoFlow stats and user intent', () => {
+    const prompt = createAiTodoFlowAnalysisPrompt(
+      [todo('todo-1', 'Deep work', '2026-05-13')],
+      [task('task-1', 'Email', '2026-05-13')],
+      'Find schedule risks',
+      '2026-05-13'
+    );
+
+    expect(prompt).toContain('Find schedule risks');
+    expect(prompt).toContain('Total TodoFlows: 1');
+    expect(prompt).toContain('Scheduled days: 1');
+    expect(prompt).toContain('Deep work');
+    expect(prompt).toContain('Email');
+  });
+
+  it('creates an AI TodoFlow creation prompt from user request and current data', () => {
+    const prompt = createAiTodoFlowPrompt(
+      [todo('todo-1', 'Existing plan', '2026-05-13')],
+      [],
+      'Create a 2 hour study flow',
+      '2026-05-13'
+    );
+
+    expect(prompt).toContain('Create a 2 hour study flow');
+    expect(prompt).toContain('Return a concise TodoFlow plan');
+    expect(prompt).toContain('Existing plan');
+    expect(prompt).toContain('Total TodoFlows: 1');
   });
 
   it('clears assignment when removing the last assigned date from a TodoFlow', () => {

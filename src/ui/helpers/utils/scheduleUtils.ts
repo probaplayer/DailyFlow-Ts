@@ -52,6 +52,81 @@ export interface TodoFlowAnalytics {
   actualSeconds: number;
 }
 
+function formatSecondsForPrompt(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+}
+
+function buildTodoFlowContext(todos: TodoFlow[], tasks: Task[], todayKey: string): string {
+  const stats = getTodoFlowAnalytics(todos, tasks, todayKey);
+  const completionRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
+  const todoLines = todos.slice(0, 12).map((todo) => {
+    const dateText = getTodoScheduleDateKeys(todo).join(', ') || 'unscheduled';
+    return `- TodoFlow: ${todo.note || 'Untitled'} | dates: ${dateText} | tasks: ${todo.taskCompleted}/${todo.taskTotal} | planned: ${formatSecondsForPrompt(todo.estimatedTimeTodo || 0)} | actual: ${formatSecondsForPrompt(todo.actualTimeTodo || 0)}`;
+  });
+  const taskLines = tasks.slice(0, 12).map((task) => {
+    const dateText = getTaskScheduleDateKeys(task).join(', ') || 'unscheduled';
+    return `- Task: ${task.title || 'Untitled'} | date: ${dateText} | status: ${task.status} | planned: ${formatSecondsForPrompt(task.estimatedTime || 0)} | actual: ${formatSecondsForPrompt(task.actualTime || 0)}`;
+  });
+
+  return [
+    `Today: ${todayKey}`,
+    `Total TodoFlows: ${stats.totalTodoFlows}`,
+    `Scheduled days: ${stats.scheduledDays}`,
+    `Today TodoFlows: ${stats.todayTodoFlows}`,
+    `Completed tasks: ${stats.completedTasks}/${stats.totalTasks}`,
+    `Completion rate: ${completionRate}%`,
+    `In-progress TodoFlows: ${stats.inProgressTodoFlows}`,
+    `Planned time: ${formatSecondsForPrompt(stats.plannedSeconds)}`,
+    `Actual time: ${formatSecondsForPrompt(stats.actualSeconds)}`,
+    '',
+    'TodoFlows:',
+    todoLines.length > 0 ? todoLines.join('\n') : '- None',
+    '',
+    'Standalone tasks:',
+    taskLines.length > 0 ? taskLines.join('\n') : '- None',
+  ].join('\n');
+}
+
+export function createAiTodoFlowAnalysisPrompt(
+  todos: TodoFlow[],
+  tasks: Task[],
+  userRequest: string,
+  todayKey = toDateKey(new Date())
+): string {
+  return [
+    'You are an AI productivity analyst for a TodoFlow app.',
+    'Analyze the user data below and answer with practical scheduling, workload, and focus-time insights.',
+    'Be specific. Mention risks, overloaded days, unfinished work, and next actions.',
+    '',
+    `User request: ${userRequest.trim() || 'Analyze my TodoFlow data.'}`,
+    '',
+    'TodoFlow data:',
+    buildTodoFlowContext(todos, tasks, todayKey),
+  ].join('\n');
+}
+
+export function createAiTodoFlowPrompt(
+  todos: TodoFlow[],
+  tasks: Task[],
+  userRequest: string,
+  todayKey = toDateKey(new Date())
+): string {
+  return [
+    'You are an AI TodoFlow planner.',
+    'Return a concise TodoFlow plan that the user can copy into the app.',
+    'Include a TodoFlow title, suggested schedule duration, and task list with estimated minutes.',
+    'Use the existing data as context to avoid conflicts and unrealistic planning.',
+    '',
+    `User request: ${userRequest.trim() || 'Create a TodoFlow for my next useful work block.'}`,
+    '',
+    'Current TodoFlow data:',
+    buildTodoFlowContext(todos, tasks, todayKey),
+  ].join('\n');
+}
+
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

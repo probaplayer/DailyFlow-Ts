@@ -1,5 +1,5 @@
 import { ReactNode, useContext} from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ThemeContext } from '../App';
 import { 
   IoSettingsOutline, 
@@ -20,30 +20,39 @@ interface DefaultLayoutProps {
 
 const DefaultLayout = ({ children }: DefaultLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDarkTheme, toggleTheme } = useContext(ThemeContext);
   const { 
       ask, 
   } = useAlert();
 
+  const navClass = (path: string, primary = false) => {
+    const isActive =
+      path === '/dashboard'
+        ? location.pathname === '/' || location.pathname === '/dashboard'
+        : location.pathname === path;
+    return `btn ${primary ? 'btn-primary h-[32px]' : 'btn-icon'} ${isActive ? 'active' : ''}`;
+  };
+
   return (
     <div className="layout-container">
       <nav className="drag-area sidebar">
         <div className="nav-top">
-          <button className="btn btn-icon" title="Dashboard" onClick={() => navigate('/dashboard')}>
+          <button className={navClass('/dashboard')} title="Dashboard" onClick={() => navigate('/dashboard')}>
             <IoHomeOutline />
           </button>
-          <button className="btn btn-primary h-[32px]" title="Manage TodoFlow" onClick={() => navigate('/manage')}>
+          <button className={navClass('/manage', true)} title="Manage TodoFlow" onClick={() => navigate('/manage')}>
             <IoListOutline />
           </button>
-          <button className="btn btn-icon" title="Analytics" onClick={() => navigate('/analytics')}>
+          <button className={navClass('/analytics')} title="Analytics" onClick={() => navigate('/analytics')}>
             <IoBarChartOutline />
           </button>
-          <button className="btn btn-icon" title="AI" onClick={() => navigate('/ai')}>
+          <button className={navClass('/ai')} title="AI" onClick={() => navigate('/ai')}>
             <IoSparklesOutline />
           </button>
         </div>
         <div className="nav-bottom">
-          <button className="btn btn-icon" onClick={() => navigate('/setting')}>
+          <button className={navClass('/setting')} onClick={() => navigate('/setting')}>
             <IoSettingsOutline />
           </button>
           <button className="btn btn-icon" onClick={toggleTheme}>

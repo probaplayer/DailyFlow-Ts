@@ -80,18 +80,17 @@ const Manage = () => {
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Search TodoFlows and tasks"
         />
-        <div className="manage-filters">
+        <select
+          className="input input-primary manage-filter-select"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value as ManageItemFilter)}
+        >
           {filterOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`btn btn-sm ${filter === option.value ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setFilter(option.value)}
-            >
+            <option key={option.value} value={option.value}>
               {option.label}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
       <div className="manage-grid">

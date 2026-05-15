@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageType } from '~/enums/PageType.enum';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
+  createAiTodoFlowAnalysisPrompt,
+  createAiTodoFlowPrompt,
   getTodoFlowAnalytics,
   getTodoScheduleDateKeys,
 } from '~/ui/helpers/utils/scheduleUtils';
@@ -9,13 +11,109 @@ import { formatTime } from '~/ui/helpers/utils/utils';
 import './AiFlow.css';
 
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
+type AiProvider = 'openai' | 'anthropic' | 'gemini';
+
+interface AiConfig {
+  provider: AiProvider;
+  model: string;
+  apiKey: string;
+}
+
+const storageKey = 'aiTodoFlowConfig';
+const modelOptions: Record<AiProvider, string[]> = {
+  openai: ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini'],
+  anthropic: ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
+  gemini: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
+};
+
+const defaultConfig: AiConfig = {
+  provider: 'openai',
+  model: modelOptions.openai[0],
+  apiKey: '',
+};
+
+function loadAiConfig(): AiConfig {
+  try {
+    const savedConfig = localStorage.getItem(storageKey);
+    if (!savedConfig) return defaultConfig;
+    const parsed = JSON.parse(savedConfig) as Partial<AiConfig>;
+    const provider = parsed.provider && parsed.provider in modelOptions ? parsed.provider : defaultConfig.provider;
+    const models = modelOptions[provider];
+    return {
+      provider,
+      model: parsed.model && models.includes(parsed.model) ? parsed.model : models[0],
+      apiKey: parsed.apiKey || '',
+    };
+  } catch {
+    return defaultConfig;
+  }
+}
+
+async function callAiProvider(config: AiConfig, prompt: string): Promise<string> {
+  if (!config.apiKey.trim()) {
+    throw new Error('API key is required.');
+  }
+
+  if (config.provider === 'openai') {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        input: prompt,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || 'OpenAI request failed.');
+    return data.output_text || data.output?.[0]?.content?.[0]?.text || JSON.stringify(data, null, 2);
+  }
+
+  if (config.provider === 'anthropic') {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || 'Claude request failed.');
+    return data.content?.map((item: { text?: string }) => item.text).filter(Boolean).join('\n') || JSON.stringify(data, null, 2);
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${encodeURIComponent(config.apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error?.message || 'Gemini request failed.');
+  return data.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text).filter(Boolean).join('\n') || JSON.stringify(data, null, 2);
+}
 
 const AiFlow = () => {
   const [todos, setTodos] = useState<TodoFlow[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [config, setConfig] = useState<AiConfig>(() => loadAiConfig());
   const [analysisPrompt, setAnalysisPrompt] = useState('');
   const [draftPrompt, setDraftPrompt] = useState('');
-  const [localResult, setLocalResult] = useState('');
+  const [result, setResult] = useState('');
+  const [status, setStatus] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   useResizePage(PageType.MAIN);
 
   const fetchItems = async () => {
@@ -33,31 +131,45 @@ const AiFlow = () => {
 
   const stats = useMemo(() => getTodoFlowAnalytics(todos, tasks), [todos, tasks]);
   const recentTodos = useMemo(() => todos.slice(0, 5), [todos]);
+  const currentModels = modelOptions[config.provider];
 
-  const runLocalAnalysis = () => {
-    const completionRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
-    const focus = analysisPrompt.trim() || 'overall TodoFlow health';
-    setLocalResult(
-      [
-        `Focus: ${focus}`,
-        `TodoFlows: ${stats.totalTodoFlows}`,
-        `Scheduled days: ${stats.scheduledDays}`,
-        `Completion: ${completionRate}% (${stats.completedTasks}/${stats.totalTasks})`,
-        `Time: ${formatTime(stats.actualSeconds)} actual / ${formatTime(stats.plannedSeconds)} planned`,
-      ].join('\n')
-    );
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(config));
+  }, [config]);
+
+  const updateProvider = (provider: AiProvider) => {
+    setConfig((current) => ({
+      ...current,
+      provider,
+      model: modelOptions[provider][0],
+    }));
   };
 
-  const createLocalDraft = () => {
-    const title = draftPrompt.trim() || 'New AI TodoFlow';
-    setLocalResult(
-      [
-        `Draft TodoFlow: ${title}`,
-        '1. Clarify the outcome - 25 min',
-        '2. Work on the main task - 50 min',
-        '3. Review and adjust - 15 min',
-      ].join('\n')
-    );
+  const runAiRequest = async (prompt: string, nextStatus: string) => {
+    setIsLoading(true);
+    setStatus(nextStatus);
+    setResult('');
+    try {
+      const response = await callAiProvider(config, prompt);
+      setResult(response);
+      setStatus('Done');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'AI request failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testConfig = async () => {
+    await runAiRequest('Reply with exactly: TodoFlow AI config OK', 'Testing config...');
+  };
+
+  const analyzeTodoFlow = async () => {
+    await runAiRequest(createAiTodoFlowAnalysisPrompt(todos, tasks, analysisPrompt), 'Analyzing TodoFlow data...');
+  };
+
+  const createTodoFlowDraft = async () => {
+    await runAiRequest(createAiTodoFlowPrompt(todos, tasks, draftPrompt), 'Creating TodoFlow draft...');
   };
 
   return (
@@ -69,6 +181,48 @@ const AiFlow = () => {
         </button>
       </div>
 
+      <section className="ai-config card">
+        <div>
+          <label>Provider</label>
+          <select
+            className="input input-primary"
+            value={config.provider}
+            onChange={(event) => updateProvider(event.target.value as AiProvider)}
+          >
+            <option value="openai">GPT</option>
+            <option value="anthropic">Claude</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </div>
+        <div>
+          <label>Model</label>
+          <select
+            className="input input-primary"
+            value={config.model}
+            onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
+          >
+            {currentModels.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="ai-api-key">
+          <label>API key</label>
+          <input
+            className="input input-primary"
+            type="password"
+            value={config.apiKey}
+            onChange={(event) => setConfig((current) => ({ ...current, apiKey: event.target.value }))}
+            placeholder="Paste API key"
+          />
+        </div>
+        <button className="btn btn-secondary h-[38px]" disabled={isLoading} onClick={testConfig}>
+          Test config
+        </button>
+      </section>
+
       <div className="ai-grid">
         <section className="ai-panel card">
           <h2>Analyze</h2>
@@ -78,7 +232,7 @@ const AiFlow = () => {
             onChange={(event) => setAnalysisPrompt(event.target.value)}
             placeholder="Analyze schedule pressure, unfinished tasks, or focus time"
           />
-          <button className="btn btn-primary w-full h-[36px]" onClick={runLocalAnalysis}>
+          <button className="btn btn-primary w-full h-[36px]" disabled={isLoading} onClick={analyzeTodoFlow}>
             Analyze
           </button>
         </section>
@@ -91,14 +245,15 @@ const AiFlow = () => {
             onChange={(event) => setDraftPrompt(event.target.value)}
             placeholder="Describe the goal, duration, and preferred task breakdown"
           />
-          <button className="btn btn-primary w-full h-[36px]" onClick={createLocalDraft}>
+          <button className="btn btn-primary w-full h-[36px]" disabled={isLoading} onClick={createTodoFlowDraft}>
             Create Draft
           </button>
         </section>
 
         <section className="ai-panel card ai-result-panel">
           <h2>Result</h2>
-          <pre className="ai-result">{localResult || 'No result yet.'}</pre>
+          {status && <p className="ai-status">{status}</p>}
+          <pre className="ai-result">{result || 'No result yet.'}</pre>
         </section>
       </div>
 
