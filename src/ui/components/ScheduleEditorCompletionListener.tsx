@@ -8,17 +8,22 @@ import { getTodoScheduleDateKeys, toDateKey } from '~/ui/helpers/utils/scheduleU
 const ScheduleEditorCompletionListener = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { ask } = useAlert();
+  const { askInApp } = useAlert();
 
   useEffect(() => {
-    return window.electronAPI.onScheduleEditorCompleted(async ({ todo, mode }) => {
+    return window.electronAPI.onScheduleEditorCompleted(async ({ todo, mode, returnTo, activeDateKey }) => {
       dispatch(setTodo(todo));
+      if (returnTo) {
+        navigate(returnTo, { state: { activeDateKey } });
+        return;
+      }
+
       if (!getTodoScheduleDateKeys(todo).includes(toDateKey(new Date()))) {
         navigate('/dashboard');
         return;
       }
 
-      const result = await ask('This TodoFlow is scheduled for today. Do you want to start it now?', 'Start TodoFlow', [
+      const result = await askInApp('This TodoFlow is scheduled for today. Do you want to start it now?', 'Start TodoFlow', [
         'Start',
         'Dashboard',
       ]);
@@ -29,7 +34,7 @@ const ScheduleEditorCompletionListener = () => {
 
       navigate('/dashboard');
     });
-  }, [ask, dispatch, navigate]);
+  }, [askInApp, dispatch, navigate]);
 
   return null;
 };

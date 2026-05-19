@@ -3,6 +3,7 @@ import { PrefixType } from '~/enums/Prefix.Type.enum';
 import { TaskStatus } from '~/enums/TaskStatus.Type.enum';
 import { TodoStatus } from '~/enums/TodoStatus.Type.enum';
 import { generateId } from '~/ui/helpers/utils/utils';
+import { redistributeTaskEstimateWithinTodo } from '~/ui/helpers/utils/scheduleUtils';
 
 const initialState: TodoFlow = {
   id: '',
@@ -115,6 +116,20 @@ const todoflowSlice = createSlice({
     updateTask: (state, action: PayloadAction<{ id: string; updates: Partial<Task> }>) => {
       const { id, updates } = action.payload;
       if (state.tasks[id]) {
+        if (updates.estimatedTime !== undefined) {
+          const updatedTodo = redistributeTaskEstimateWithinTodo(state, id, updates.estimatedTime);
+          return {
+            ...updatedTodo,
+            tasks: {
+              ...updatedTodo.tasks,
+              [id]: {
+                ...updatedTodo.tasks[id],
+                ...updates,
+                estimatedTime: updatedTodo.tasks[id].estimatedTime,
+              },
+            },
+          };
+        }
         state.tasks[id] = { ...state.tasks[id], ...updates };
         todoflowSlice.caseReducers.calculateEstimatedTime(state);
       }
@@ -203,6 +218,7 @@ const todoflowSlice = createSlice({
       if (!task) return;
 
       if (action.payload === undefined) {
+        if (state.timer == null) return;
         const timeLeft = state.timeLeft ?? (task.isTaskBreak ? 0 : 0);
         state.timeLeft = Math.max(0, task.isTaskBreak ? timeLeft - 1 : timeLeft + 1);
         state.actualTimeTodo = state.actualTimeTodo + 1;
@@ -214,7 +230,7 @@ const todoflowSlice = createSlice({
     },
 
     setStartTimer: (state, action: PayloadAction<NodeJS.Timeout | null>) => {
-      if (state.timer) {
+      if (state.timer != null) {
         clearInterval(state.timer);
       }
       const taskId = state.currentTaskId;
@@ -228,7 +244,7 @@ const todoflowSlice = createSlice({
     },
 
     setStopTimer: (state) => {
-      if (state.timer) {
+      if (state.timer != null) {
         const currentTaskStatus =  state.tasks[state.currentTaskId as string]?.status;
         if (currentTaskStatus === TaskStatus.IN_PROGRESS && state.currentTaskId) {
           state.tasks[state.currentTaskId as string].status = TaskStatus.PAUSED;
@@ -279,7 +295,7 @@ const todoflowSlice = createSlice({
         state.currentTaskId = undefined;
         state.timeLeft = 0;
 
-        if (state.timer) {
+        if (state.timer != null) {
           clearInterval(state.timer);
           state.timer = null;
         }

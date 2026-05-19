@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type WheelEvent, useEffect, useMemo, useRef, useState } from 'react';
 import './Dashboard.css';
 import { PageType } from '~/enums/PageType.enum';
-import { useAppDispatch } from '~/ui/store/hooks';
-import { setTodo } from '~/ui/store/todo/todoSlice';
+import { useAppDispatch, useAppSelector } from '~/ui/store/hooks';
+import { setStopTimer, setTodo } from '~/ui/store/todo/todoSlice';
 import { useNavigate } from 'react-router-dom';
 import { useResizePage } from '~/ui/helpers/hooks/useResizePage';
 import {
-  buildMonthDays,
+  buildCalendarWindowDays,
   formatDateChipLabels,
   getDueNotificationItems,
   getDueSlotNotificationItems,
+  getMonthCalendarGridStart,
   getTodoFlowLaunchLabel,
   groupScheduledItemsByDate,
   groupScheduledItemsForDateRange,
@@ -25,18 +26,46 @@ import DateChipList from '~/ui/components/DateChipList/DateChipList';
 const withoutRuntimeTimer = (todo: TodoFlow): TodoFlow => ({ ...todo, timer: null });
 const AUTO_SCROLL_EDGE = 48;
 const AUTO_SCROLL_STEP = 18;
+const MONTH_SWITCH_EDGE = 28;
+const MONTH_SWITCH_COOLDOWN_MS = 150;
 
 const isDueSlotNotification = (item: unknown): item is DueSlotNotificationItem => {
   return Boolean(item && typeof item === 'object' && 'slot' in item && 'notificationKey' in item);
 };
 
+const startOfWeek = (date: Date): Date => {
+  const start = new Date(date);
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+};
+
+const dateKeyToDate = (dateKey: string): Date => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getDominantMonthDate = (days: ReturnType<typeof buildCalendarWindowDays>): Date => {
+  const counts = days.reduce<Record<string, { date: Date; count: number }>>((monthCounts, day) => {
+    const key = `${day.date.getFullYear()}-${day.date.getMonth()}`;
+    monthCounts[key] ||= { date: new Date(day.date.getFullYear(), day.date.getMonth(), 1), count: 0 };
+    monthCounts[key].count += 1;
+    return monthCounts;
+  }, {});
+
+  return Object.values(counts).sort((a, b) => b.count - a.count || a.date.getTime() - b.date.getTime())[0]?.date || new Date();
+};
+
 const Dashboard = () => {
   const dispatch = useAppDispatch();
+  const activeTodoFlow = useAppSelector((state) => state.todoflow);
   const navigate = useNavigate();
   const dayMenuRef = useRef<HTMLDivElement | null>(null);
   const calendarLayoutRef = useRef<HTMLDivElement | null>(null);
+  const calendarMainRef = useRef<HTMLElement | null>(null);
+  const lastWheelMonthSwitchRef = useRef(0);
+  const lastDragMonthSwitchRef = useRef(0);
   const [todos, setTodos] = useState<TodoFlow[]>([]);
-  const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [visibleStartDate, setVisibleStartDate] = useState(() => getMonthCalendarGridStart(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
   const [selectedDateKeys, setSelectedDateKeys] = useState<string[]>(() => [toDateKey(new Date())]);
   const [rangeStartDateKey, setRangeStartDateKey] = useState(() => toDateKey(new Date()));
@@ -58,7 +87,8 @@ const Dashboard = () => {
     fetchScheduleData();
   }, []);
 
-  const monthDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
+  const monthDays = useMemo(() => buildCalendarWindowDays(visibleStartDate), [visibleStartDate]);
+  const dominantMonthDate = useMemo(() => getDominantMonthDate(monthDays), [monthDays]);
   const groupedItems = useMemo(
     () => groupScheduledItemsByDate(todos, []),
     [todos]
@@ -85,6 +115,9 @@ const Dashboard = () => {
   };
 
   const openTodo = (todo: TodoFlow, dateKey?: string) => {
+    if (activeTodoFlow.timer != null) {
+      dispatch(setStopTimer());
+    }
     dispatch(setTodo(withoutRuntimeTimer(todo)));
     navigate('/todoflow', { state: { fromDashboard: true, dateKey } });
   };
@@ -112,6 +145,7 @@ const Dashboard = () => {
 
     const scrollCalendarNearEdge = (event: MouseEvent) => {
       const container = calendarLayoutRef.current;
+      const calendarMain = calendarMainRef.current;
       if (!container) return;
 
       const rect = container.getBoundingClientRect();
@@ -124,11 +158,24 @@ const Dashboard = () => {
       if (left || top) {
         container.scrollBy({ left, top });
       }
+
+      if (!calendarMain) return;
+      const calendarRect = calendarMain.getBoundingClientRect();
+      const now = Date.now();
+      if (now - lastDragMonthSwitchRef.current < MONTH_SWITCH_COOLDOWN_MS) return;
+
+      if (event.clientY > calendarRect.bottom - MONTH_SWITCH_EDGE) {
+        lastDragMonthSwitchRef.current = now;
+        moveVisibleRowsWithSelection(1);
+      } else if (event.clientY < calendarRect.top + MONTH_SWITCH_EDGE) {
+        lastDragMonthSwitchRef.current = now;
+        moveVisibleRowsWithSelection(-1);
+      }
     };
 
     document.addEventListener('mousemove', scrollCalendarNearEdge);
     return () => document.removeEventListener('mousemove', scrollCalendarNearEdge);
-  }, [isSelectingDates]);
+  }, [isSelectingDates, rangeStartDateKey]);
 
   useEffect(() => {
     const notifyDueItems = async () => {
@@ -161,8 +208,61 @@ const Dashboard = () => {
     }
   }, [todos.length]);
 
-  const moveVisibleMonth = (offset: number) => {
-    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  const moveVisibleRows = (offset: number) => {
+    setVisibleStartDate((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + offset * 7);
+      return startOfWeek(next);
+    });
+  };
+
+  const moveVisibleRowsWithSelection = (offset: number) => {
+    setVisibleStartDate((current) => {
+      const nextStart = new Date(current);
+      nextStart.setDate(nextStart.getDate() + offset * 7);
+      const nextDateKey = toDateKey(nextStart);
+      if (!isPastDateKey(nextDateKey)) {
+        setSelectedDateKey(nextDateKey);
+        setSelectedDateKeys((currentSelection) => {
+          const nextRange = listDateKeysBetween(rangeStartDateKey, nextDateKey).filter((key) => !isPastDateKey(key));
+          return nextRange.length > 0 ? nextRange : currentSelection;
+        });
+      }
+      return startOfWeek(nextStart);
+    });
+  };
+
+  const focusToday = () => {
+    const today = new Date();
+    const todayKey = toDateKey(today);
+    setVisibleStartDate(getMonthCalendarGridStart(today));
+    setSelectedDateKey(todayKey);
+    setSelectedDateKeys([todayKey]);
+    setRangeStartDateKey(todayKey);
+    setDayMenu(null);
+  };
+
+  const selectDateFromPicker = (dateKey: string) => {
+    if (!dateKey || isPastDateKey(dateKey)) {
+      return;
+    }
+
+    setVisibleStartDate(getMonthCalendarGridStart(dateKeyToDate(dateKey)));
+    setSelectedDateKey(dateKey);
+    setSelectedDateKeys([dateKey]);
+    setRangeStartDateKey(dateKey);
+    setDayMenu(null);
+  };
+
+  const handleCalendarWheel = (event: WheelEvent<HTMLElement>) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    event.preventDefault();
+    const now = Date.now();
+    if (now - lastWheelMonthSwitchRef.current < MONTH_SWITCH_COOLDOWN_MS) return;
+
+    lastWheelMonthSwitchRef.current = now;
+    moveVisibleRows(event.deltaY > 0 ? 1 : -1);
   };
 
   const openDayMenu = (target: HTMLButtonElement, dateKey: string) => {
@@ -195,6 +295,8 @@ const Dashboard = () => {
   };
 
   const selectedDateCount = selectedDateKeys.length;
+  const todayDateKey = toDateKey(new Date());
+  const pickerDateKey = isPastDateKey(selectedDateKey) ? todayDateKey : selectedDateKey;
   const selectedLabel =
     selectedDateCount > 1
       ? `${selectedDateCount} selected days`
@@ -226,12 +328,23 @@ const Dashboard = () => {
       <div className="dashboard-calendar-header">
         <h1 className="text-2xl font-bold text-highlight">Dashboard</h1>
         <div className="dashboard-month-controls">
-          <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleMonth(-1)}>
-            Prev
+          <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleRows(-1)}>
+            Prev row
           </button>
-          <strong>{visibleMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</strong>
-          <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleMonth(1)}>
-            Next
+          <button className="btn btn-secondary dashboard-month-button" onClick={focusToday}>
+            Today
+          </button>
+          <input
+            className="input input-primary dashboard-date-picker"
+            type="date"
+            min={todayDateKey}
+            value={pickerDateKey}
+            aria-label="Select dashboard date"
+            title={dominantMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            onChange={(event) => selectDateFromPicker(event.target.value)}
+          />
+          <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleRows(1)}>
+            Next row
           </button>
         </div>
       </div>
@@ -268,7 +381,7 @@ const Dashboard = () => {
 
         </aside>
 
-        <section className="dashboard-calendar-main">
+        <section className="dashboard-calendar-main" ref={calendarMainRef} onWheel={handleCalendarWheel}>
           <div className="dashboard-calendar-shell">
           <div className="dashboard-weekdays">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -280,10 +393,13 @@ const Dashboard = () => {
               const dayItems = groupedItems[day.dateKey] || { todos: [], tasks: [] };
               const isPastDay = isPastDateKey(day.dateKey);
               const isSelected = selectedDateKeys.includes(day.dateKey);
+              const isDominantMonth =
+                day.date.getFullYear() === dominantMonthDate.getFullYear() &&
+                day.date.getMonth() === dominantMonthDate.getMonth();
               return (
                 <button
                   key={day.dateKey}
-                  className={`dashboard-day ${day.isCurrentMonth ? '' : 'muted'} ${day.isToday ? 'today' : ''} ${
+                  className={`dashboard-day ${isDominantMonth ? 'dominant-month' : 'muted'} ${day.isToday ? 'today' : ''} ${
                     isSelected ? 'selected' : ''
                   } ${isPastDay ? 'disabled' : ''}`}
                   disabled={isPastDay}
@@ -346,22 +462,6 @@ const Dashboard = () => {
               >
                 Create {selectedDateCount > 1 ? `${selectedDateCount} TodoFlows` : 'TodoFlow'}
               </button>
-              <div className="context-menu-divider" />
-              <div className="dashboard-day-menu-section">TodoFlows</div>
-              {groupedItems.unscheduled.todos.length === 0 ? (
-                <div className="context-menu-item dashboard-menu-empty">No TodoFlows available</div>
-              ) : (
-                groupedItems.unscheduled.todos.map((todo) => (
-                  <button
-                    key={todo.id}
-                    type="button"
-                    className="context-menu-item dashboard-menu-entry"
-                    onClick={() => openScheduleEditor({ todoId: todo.id })}
-                  >
-                    <span className="dashboard-menu-label">{todo.note}</span>
-                  </button>
-                ))
-              )}
             </div>
           )}
         </section>

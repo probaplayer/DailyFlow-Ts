@@ -54,9 +54,6 @@ const Analytics = () => {
     <div className="analytics-page">
       <div className="analytics-header">
         <h1 className="text-2xl font-bold text-highlight">Analytics</h1>
-        <button className="btn btn-secondary dashboard-month-button" onClick={fetchItems}>
-          Refresh
-        </button>
       </div>
 
       <section className="analytics-metrics">

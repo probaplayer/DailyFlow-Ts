@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { IoAddCircleOutline, IoSettingsOutline } from "react-icons/io5";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import './Todoflow.css';
 import Task from "~/ui/components/Task/Task";
 import { calculateProgressWidth, formatTime, generateId, getOnLeftInScreen } from "~/ui/helpers/utils/utils";
 import { useAppSelector, useAppDispatch } from "~/ui/store/hooks";
@@ -32,15 +33,14 @@ import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { SoundType } from '~/enums/Sound.Type.enum';
 import { FaMinus } from 'react-icons/fa';
 import InputHandler from '~/ui/components/InputHandler/InputHandler';
+import { mainWindowResizeState } from '~/ui/helpers/utils/pageResizeState';
 import {
-  formatDateChipLabels,
+  canResumeTodoFlowEntry,
   getTodoScheduleDateKeys,
   hasTodoFlowStarted,
   resetTodoFlowProgress,
-  splitTodoFlowForDate,
   toDateKey,
 } from '~/ui/helpers/utils/scheduleUtils';
-import DateChipList from '~/ui/components/DateChipList/DateChipList';
 
 const Todoflow = () => {
   const navigate = useNavigate();
@@ -67,14 +67,18 @@ const Todoflow = () => {
       : assignedDateKeys.includes(todayKey)
         ? todayKey
         : assignedDateKeys[0];
-  const canDetachTodoFlow = !isCreateMode && assignedDateKeys.length > 1 && Boolean(activeDateKey);
 
   useEffect(() =>{
     const handleToResize = async () => {
+      if (!mainWindowResizeState.shouldResize(PageType.TODOFLOW)) {
+        return;
+      }
+
       const {width, height} = getPageSize(PageType.TODOFLOW);
       const { width: currentWidth, height: currentHeight} = await window.electronAPI.getUserScreenSize();
       await window.electronAPI.smoothResizeAndMove('main', width, height, 60, 
         getOnLeftInScreen(currentWidth, currentHeight, width, height));
+      mainWindowResizeState.markResized(PageType.TODOFLOW);
     }
     handleToResize();
   },[])
@@ -85,6 +89,7 @@ const Todoflow = () => {
         setIsNewTodo(isCreateMode);
         if (isFromDashboard && hasTodoFlowStarted(todoFlow) && !entryPromptShownRef.current) {
           entryPromptShownRef.current = true;
+          dispatch(setStopTimer());
           setShowEntryPrompt(true);
           await window.electronAPI.setWindowAlwaysOnTop('main', true);
           return;
@@ -164,7 +169,7 @@ const Todoflow = () => {
 
   const resumeTodoFlowEntry = async () => {
     setShowEntryPrompt(false);
-    if (todoFlow.status === TodoStatus.START_ON_TODO && todoFlow.currentTaskId && todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS) {
+    if (canResumeTodoFlowEntry(todoFlow)) {
       dispatch(setStartTimer(setInterval(() => {
          dispatch(setTimeLeft(undefined));
       }, 1000)));
@@ -182,6 +187,10 @@ const Todoflow = () => {
 
   useEffect(() =>{
     const handleByStatusChange = async () => {
+      if (isFromDashboard && entryPromptShownRef.current) {
+        return;
+      }
+
       if(todoFlow.status === TodoStatus.STOP){
         const currentTask = todoFlow.currentTaskId;
         const isTaskBreak = currentTask ? todoFlow.tasks[currentTask]?.isTaskBreak : false;
@@ -345,37 +354,9 @@ const Todoflow = () => {
     }
   };
 
-  const handleDetachTodoFlow = async () => {
-    if (!activeDateKey) return;
-
-    const result = splitTodoFlowForDate(todoFlow, generateId(), activeDateKey, () => generateId());
-    if (!result) {
-      info('This TodoFlow cannot be detached.');
-      return;
-    }
-
-    try {
-      await window.electronAPI.todoUpsert(result.originalTodo);
-      await window.electronAPI.todoUpsert(result.detachedTodo);
-      for (const taskId of result.detachedTodo.taskIds) {
-        const task = result.detachedTodo.tasks[taskId];
-        if (task) {
-          await window.electronAPI.taskUpsert(task);
-        }
-      }
-      dispatch(setTodo(result.detachedTodo));
-      setIsNewTodo(false);
-      navigate('/todoflow', { replace: true, state: { mode: 'edit', dateKey: activeDateKey } });
-      info('TodoFlow detached for this day.');
-    } catch (error) {
-      console.error('Failed to detach TodoFlow:', error);
-      info('Failed to detach TodoFlow');
-    }
-  };
-
   return (
-    <div className="h-full">
-      <div className="mb-2 flex items-center justify-between" >
+    <div className="todoflow-page h-full">
+      <div className="todoflow-header mb-2 flex items-start justify-between" >
         <div className='flex items-center w-full'>
           <button className='btn btn-icon' onClick={() =>{
             dispatch(setStopTimer());
@@ -386,7 +367,7 @@ const Todoflow = () => {
             <p className='drag-area'>
               {isNewTodo ? '🆕' : '✏️'}
             </p>
-            <div className='flex-1'>
+            <div className='todoflow-note-area flex-1'>
               <input 
                 type="text" 
                 className={`input input-primary z-50 ${noteError ? 'input-error' : ''}`} 
@@ -396,21 +377,10 @@ const Todoflow = () => {
                 onBlur={handleNoteBlur}
               />
               {noteError && <p className="text-red-500 text-sm mt-1">{noteError}</p>}
-              {assignedDateKeys.length > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
-                  <span>Assigned:</span>
-                  <DateChipList labels={formatDateChipLabels(assignedDateKeys)} className="mt-1" />
-                </div>
-              )}
             </div>
           </div>
         </div>
         <div className='flex items-center gap-1'>
-          {canDetachTodoFlow && (
-            <button className="btn btn-secondary h-[30px] px-3 text-sm" onClick={handleDetachTodoFlow}>
-              Detach
-            </button>
-          )}
           <button className="btn btn-icon" onClick={async () => {
             const resetTodo = resetTodoFlowProgress(todoFlow);
             dispatch(setResetTodoFlow());
@@ -419,7 +389,7 @@ const Todoflow = () => {
             <RiResetLeftLine />
           </button>
           {
-            todoFlow.timer && (
+            todoFlow.timer != null && (
               <button className="btn btn-icon" onClick={() => {
                 const isValid = validationRules();
                 if (!isValid) return;
@@ -432,7 +402,7 @@ const Todoflow = () => {
           <button
             className="btn btn-icon"
             onClick={() => {
-              navigate('/setting');
+              navigate('/todoflow-setting', { state: { activeDateKey } });
             }}
           >
             <IoSettingsOutline />
@@ -448,13 +418,16 @@ const Todoflow = () => {
         </div>
       </div>
   
-      <div className="card mt-3">
+      <div className="card mt-3 todoflow-progress-card">
         <div className='flex items-center justify-between'>
           <div>
             <span>Status: </span> <span className="text-highlight">{todoFlow.status == TodoStatus.STOP ? 'Stop' : 'Start'}</span>
           </div>
           <div>
-            <span>Est: </span> <span className={todoFlow.actualTimeTodo > todoFlow.estimatedTimeTodo ? 'text-orange-500' : ''}>{formatTime(todoFlow.actualTimeTodo)} / {formatTime(todoFlow.estimatedTimeTodo)}</span>
+            <span>Actual: </span> <span className={todoFlow.actualTimeTodo > todoFlow.estimatedTimeTodo ? 'text-orange-500' : ''}>{formatTime(todoFlow.actualTimeTodo)}</span>
+          </div>
+          <div>
+            <span>Est: </span> <span>{formatTime(todoFlow.estimatedTimeTodo || 0)}</span>
           </div>
         </div>
         <div className='flex items-center gap-2'>
@@ -465,7 +438,7 @@ const Todoflow = () => {
         </div>
       </div>
       {!todoFlow.currentTaskId && 
-        <div className='flex gap-2 mt-3'>
+        <div className='todoflow-action-row flex gap-2 mt-3'>
           <button 
             className={`btn btn-primary flex-5 w-full h-[35px] text-xxl ${todoFlow.status === 'Start' ? 'disabled' : ''}`} 
             onClick={handleToStart}
@@ -474,11 +447,11 @@ const Todoflow = () => {
           </button>
         </div>        
        }
-      <button className="btn btn-secondary mt-3 w-full h-[30px] text-2xl flex items-center justify-center"
+      <button className="todoflow-add-task btn btn-secondary mt-3 w-full h-[30px] text-2xl flex items-center justify-center"
         onClick={handleAddNewTask}>
         <IoAddCircleOutline />
       </button>
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 275px)' }} ref={containerTaskDiv}>
+      <div className="todoflow-task-list overflow-y-auto" ref={containerTaskDiv}>
         {todoFlow.currentTaskId && (
           <TaskPlayer 
             task={todoFlow.tasks[todoFlow.currentTaskId]}

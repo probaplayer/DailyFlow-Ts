@@ -85,6 +85,8 @@ const ScheduleEditor = () => {
   const timelineWrapRef = useRef<HTMLDivElement | null>(null);
   const dateKeys = useMemo(() => parseDateKeys(searchParams.get('dates')), [searchParams]);
   const todoId = searchParams.get('todoId');
+  const returnTo = searchParams.get('returnTo');
+  const activeDateKey = searchParams.get('activeDateKey');
   const [todo, setTodo] = useState<TodoFlow | null>(null);
   const [initialScheduleSlots, setInitialScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [otherTodos, setOtherTodos] = useState<TodoFlow[]>([]);
@@ -385,6 +387,8 @@ const ScheduleEditor = () => {
       await window.electronAPI.completeScheduleEditor({
         todo: withoutRuntimeTimer(nextTodo),
         mode: isCreateMode ? 'create' : 'edit',
+        returnTo,
+        activeDateKey,
       });
     } catch (error: any) {
       setSlotError(error.message || 'Invalid time slot');

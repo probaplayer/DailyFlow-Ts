@@ -4,7 +4,7 @@ import { alertService, AlertOptions, AlertResult, NotificationOptions } from '..
 export interface UIAlert {
   id: string;
   options: AlertOptions;
-  onClose: () => void;
+  onClose: (result?: AlertResult) => void;
 }
 
 export const useAlert = () => {
@@ -75,6 +75,10 @@ export const useAlert = () => {
     return await alertService.ask(message, title, buttons);
   }, []);
 
+  const askInApp = useCallback(async (message: string, title = 'Question', buttons = ['OK', 'Cancel']): Promise<AlertResult> => {
+    return await alertService.askInApp(message, title, buttons);
+  }, []);
+
   const notify = useCallback(async (title: string, body: string, icon?: string): Promise<boolean> => {
     return await alertService.notify(title, body, icon);
   }, []);
@@ -97,6 +101,7 @@ export const useAlert = () => {
     error,
     confirm,
     ask,
+    askInApp,
     notify
   };
 };

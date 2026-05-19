@@ -1,0 +1,64 @@
+.task-time-panel {
+  margin-top: 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.task-time-header,
+.task-time-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-time-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.task-time-actual {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.task-time-range {
+  margin-top: 0.7rem;
+}
+
+.task-time-controls {
+  margin-top: 0.65rem;
+}
+
+.task-time-input {
+  min-width: 0;
+  height: 34px;
+  flex: 1;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-time-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.18);
+}
+
+.task-time-step {
+  width: 48px;
+  min-width: 48px;
+  height: 34px;
+  padding: 0;
+  font-size: 0.8rem;
+}

@@ -3,6 +3,8 @@ import { TaskStatus } from '~/enums/TaskStatus.Type.enum';
 import { TodoStatus } from '~/enums/TodoStatus.Type.enum';
 import {
   buildMonthDays,
+  buildCalendarWindowDays,
+  getMonthCalendarGridStart,
   createDefaultTasksForSchedule,
   createScheduledTodoFlow,
   createTodoFlowFromTask,
@@ -21,6 +23,8 @@ import {
   getTodoFlowLaunchLabel,
   getTodoScheduleDateKeys,
   getTodoTaskEstimatedSeconds,
+  resizeTodoFlowScheduleDuration,
+  canResumeTodoFlowEntry,
   groupScheduledItemsByDate,
   groupScheduledItemsForDateRange,
   hasOverlappingScheduleSlot,
@@ -31,6 +35,7 @@ import {
   moveScheduleSlotPreservingDuration,
   splitTodoFlowForDate,
   resetTodoFlowProgress,
+  redistributeTaskEstimateWithinTodo,
   secondsBetweenTimeStrings,
   setTaskScheduleSlot,
   setTodoAssignedDate,
@@ -76,6 +81,20 @@ describe('scheduleUtils', () => {
     expect(days.length).toBeGreaterThanOrEqual(35);
     expect(days[0].dateKey).toBe('2026-04-26');
     expect(days.some((day) => day.dateKey === '2026-05-12' && day.isCurrentMonth)).toBe(true);
+  });
+
+  it('returns the calendar grid start for the requested month', () => {
+    const gridStart = getMonthCalendarGridStart(new Date(2026, 4, 19));
+    expect(toDateKey(gridStart)).toBe('2026-04-26');
+  });
+
+  it('builds a rolling calendar window from the requested week', () => {
+    const days = buildCalendarWindowDays(new Date(2026, 4, 13), new Date(2026, 4, 18));
+
+    expect(days).toHaveLength(42);
+    expect(days[0].dateKey).toBe('2026-05-10');
+    expect(days[41].dateKey).toBe('2026-06-20');
+    expect(days.some((day) => day.dateKey === '2026-05-18' && day.isToday)).toBe(true);
   });
 
   it('groups scheduled todos and standalone tasks by date', () => {
@@ -583,6 +602,119 @@ describe('scheduleUtils', () => {
     expect(synced.taskTotal).toBe(2);
   });
 
+  it('redistributes remaining task estimates when one task estimate increases', () => {
+    const updated = redistributeTaskEstimateWithinTodo(
+      {
+        ...todo('todo-1', 'Plan'),
+        estimatedTimeTodo: 3600,
+        taskIds: ['task-1', 'task-2', 'task-3'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), estimatedTime: 1200 },
+          'task-2': { ...task('task-2', 'Second'), estimatedTime: 1200 },
+          'task-3': { ...task('task-3', 'Third'), estimatedTime: 1200 },
+        },
+      },
+      'task-1',
+      1800
+    );
+
+    expect(updated.estimatedTimeTodo).toBe(3600);
+    expect(updated.tasks['task-1'].estimatedTime).toBe(1800);
+    expect(updated.tasks['task-2'].estimatedTime).toBe(900);
+    expect(updated.tasks['task-3'].estimatedTime).toBe(900);
+    expect(getTodoTaskEstimatedSeconds(updated)).toBe(3600);
+  });
+
+  it('redistributes remaining task estimates when one task estimate decreases', () => {
+    const updated = redistributeTaskEstimateWithinTodo(
+      {
+        ...todo('todo-1', 'Plan'),
+        estimatedTimeTodo: 3600,
+        taskIds: ['task-1', 'task-2', 'task-3'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), estimatedTime: 1800 },
+          'task-2': { ...task('task-2', 'Second'), estimatedTime: 900 },
+          'task-3': { ...task('task-3', 'Third'), estimatedTime: 900 },
+        },
+      },
+      'task-1',
+      1200
+    );
+
+    expect(updated.estimatedTimeTodo).toBe(3600);
+    expect(updated.tasks['task-1'].estimatedTime).toBe(1200);
+    expect(updated.tasks['task-2'].estimatedTime).toBe(1200);
+    expect(updated.tasks['task-3'].estimatedTime).toBe(1200);
+    expect(getTodoTaskEstimatedSeconds(updated)).toBe(3600);
+  });
+
+  it('ignores break tasks when redistributing task estimates', () => {
+    const updated = redistributeTaskEstimateWithinTodo(
+      {
+        ...todo('todo-1', 'Plan'),
+        estimatedTimeTodo: 3600,
+        taskIds: ['task-1', 'break-1', 'task-2'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), estimatedTime: 1200 },
+          'break-1': { ...task('break-1', 'Break'), estimatedTime: 300, isTaskBreak: true },
+          'task-2': { ...task('task-2', 'Second'), estimatedTime: 2400 },
+        },
+      },
+      'task-1',
+      1800
+    );
+
+    expect(updated.tasks['task-1'].estimatedTime).toBe(1800);
+    expect(updated.tasks['task-2'].estimatedTime).toBe(1800);
+    expect(updated.tasks['break-1'].estimatedTime).toBe(300);
+    expect(getTodoTaskEstimatedSeconds(updated)).toBe(3600);
+  });
+
+  it('extends a TodoFlow schedule duration without overlapping another TodoFlow that day', () => {
+    const resized = resizeTodoFlowScheduleDuration(
+      {
+        ...todo('todo-1', 'Plan'),
+        scheduleSlots: [{ dateKey: '2026-05-12', startTime: '09:00', endTime: '10:00' }],
+      },
+      5400,
+      [
+        {
+          ...todo('todo-2', 'Other'),
+          scheduleSlots: [{ dateKey: '2026-05-12', startTime: '11:00', endTime: '12:00' }],
+        },
+      ]
+    );
+
+    expect(resized).toEqual({
+      ok: true,
+      todo: expect.objectContaining({
+        estimatedTimeTodo: 5400,
+        scheduleSlots: [{ dateKey: '2026-05-12', startTime: '09:00', endTime: '10:30' }],
+      }),
+    });
+  });
+
+  it('rejects extending a TodoFlow schedule duration when it would overlap another TodoFlow that day', () => {
+    const resized = resizeTodoFlowScheduleDuration(
+      {
+        ...todo('todo-1', 'Plan'),
+        scheduleSlots: [{ dateKey: '2026-05-12', startTime: '09:00', endTime: '10:00' }],
+      },
+      9000,
+      [
+        {
+          ...todo('todo-2', 'Other'),
+          scheduleSlots: [{ dateKey: '2026-05-12', startTime: '11:00', endTime: '12:00' }],
+        },
+      ]
+    );
+
+    expect(resized).toEqual({
+      ok: false,
+      reason: 'This total time overlaps with another TodoFlow',
+    });
+  });
+
   it('detects overlapping schedule slots on the same date', () => {
     expect(
       hasOverlappingScheduleSlot(
@@ -638,6 +770,44 @@ describe('scheduleUtils', () => {
         },
       })
     ).toBe(true);
+  });
+
+  it('allows resuming an active TodoFlow entry from paused or in-progress task state', () => {
+    expect(
+      canResumeTodoFlowEntry({
+        ...todo('todo-1', 'Plan'),
+        currentTaskId: 'task-1',
+        taskIds: ['task-1'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), status: TaskStatus.PAUSED },
+        },
+      })
+    ).toBe(true);
+
+    expect(
+      canResumeTodoFlowEntry({
+        ...todo('todo-1', 'Plan'),
+        currentTaskId: 'task-1',
+        taskIds: ['task-1'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), status: TaskStatus.IN_PROGRESS },
+        },
+      })
+    ).toBe(true);
+  });
+
+  it('does not resume an entry with no current task or a completed current task', () => {
+    expect(canResumeTodoFlowEntry(todo('todo-1', 'Plan'))).toBe(false);
+    expect(
+      canResumeTodoFlowEntry({
+        ...todo('todo-1', 'Plan'),
+        currentTaskId: 'task-1',
+        taskIds: ['task-1'],
+        tasks: {
+          'task-1': { ...task('task-1', 'First'), status: TaskStatus.COMPLETED },
+        },
+      })
+    ).toBe(false);
   });
 
   it('resets TodoFlow progress and removes runtime break tasks', () => {

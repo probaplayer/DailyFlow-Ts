@@ -2,9 +2,9 @@ interface Window {
   electronAPI: {
     // Window operations
     createWindow: (windowType: string) => Promise<void>;
-    openScheduleEditorWindow: (payload: { dateKeys: string[]; todoId?: string }) => Promise<void>;
-    completeScheduleEditor: (payload: { todo: TodoFlow; mode: 'create' | 'edit' }) => Promise<void>;
-    onScheduleEditorCompleted: (callback: (payload: { todo: TodoFlow; mode: 'create' | 'edit' }) => void) => () => void;
+    openScheduleEditorWindow: (payload: ScheduleEditorOpenPayload) => Promise<void>;
+    completeScheduleEditor: (payload: ScheduleEditorCompletePayload) => Promise<void>;
+    onScheduleEditorCompleted: (callback: (payload: ScheduleEditorCompletePayload) => void) => () => void;
     closeWindow: (windowId: string) => Promise<void>;
     closeWindowsByType: (windowType: string) => Promise<void>;
     closeAllExceptMain: () => Promise<void>;
@@ -102,4 +102,19 @@ interface AppSettings {
   soundEnabled: boolean;
   startupSoundEnabled: boolean;
   volume: number;
+}
+
+interface ScheduleEditorOpenPayload {
+  dateKeys: string[];
+  todoId?: string;
+  taskId?: string;
+  returnTo?: string;
+  activeDateKey?: string;
+}
+
+interface ScheduleEditorCompletePayload {
+  todo: TodoFlow;
+  mode: 'create' | 'edit';
+  returnTo?: string | null;
+  activeDateKey?: string | null;
 }

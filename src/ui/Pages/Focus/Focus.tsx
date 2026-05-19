@@ -18,6 +18,7 @@ import { TodoStatus } from '~/enums/TodoStatus.Type.enum';
 import { FaMinus } from "react-icons/fa6";
 import SoundPlayer from '~/ui/helpers/utils/SoundPlayer';
 import { SoundType } from '~/enums/Sound.Type.enum';
+import { mainWindowResizeState } from '~/ui/helpers/utils/pageResizeState';
 
 
 const Focus = () => {
@@ -159,10 +160,15 @@ const Focus = () => {
       if (isExpanded) {
         pageType = PageType.FOCUS_EXPANDED;
       }
+      if (!mainWindowResizeState.shouldResize(pageType)) {
+        return;
+      }
+
       const {width, height} = getPageSize(pageType);
       const { width: currentWidth, height: currentHeight} = await window.electronAPI.getUserScreenSize();
       await window.electronAPI.smoothResizeAndMove('main', width, height, 24, 
         getOnTopRightInScreen(currentWidth, currentHeight, width, height));
+      mainWindowResizeState.markResized(pageType);
     }
     handleToResize();
   }, [isExpanded]);
@@ -214,7 +220,7 @@ const Focus = () => {
 
   const canChangeTask = todo.currentTaskId && todo.tasks[todo.currentTaskId]?.isTaskBreak;
   const isCurrentTaskBreak = todo.currentTaskId && todo.tasks[todo.currentTaskId]?.isTaskBreak;
-  const isPaused = todo.timer;
+  const isPaused = todo.timer != null;
 
 
   return (

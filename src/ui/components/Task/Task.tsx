@@ -3,6 +3,7 @@ import { CiEdit } from "react-icons/ci";
 import { FaCaretDown, FaCaretUp } from "react-icons/fa";
 import { IoAddCircleOutline } from "react-icons/io5";
 import { MdDeleteForever } from "react-icons/md";
+import { MdTimer } from "react-icons/md";
 import { IoMdCloseCircleOutline } from "react-icons/io";
 import { formatTime, generateId, parseTime } from "~/ui/helpers/utils/utils";
 import { useAppSelector, useAppDispatch } from "~/ui/store/hooks";
@@ -171,6 +172,12 @@ const Task = ({ taskId, index, triggerValidation = false}: TaskProps) => {
     dispatch(updateTask({ id: taskId, updates: { estimatedTime: seconds } }));
   };
 
+  const adjustEstimatedTime = (deltaSeconds: number) => {
+    if (!task) return;
+    const nextSeconds = Math.max(0, Math.min(86400, task.estimatedTime + deltaSeconds));
+    handleTaskChange('estimatedTime', nextSeconds);
+  };
+
   const handleTaskDelete = (taskId: string) => {
     dispatch(removeTask(taskId));
   }
@@ -229,24 +236,45 @@ const Task = ({ taskId, index, triggerValidation = false}: TaskProps) => {
           </div>
         </div>
       </div>
-      <div>
-        <input type="range" className="range" min="0" max="86400" step="300" value={task?.estimatedTime} onChange={(e) => handleTaskChange('estimatedTime', Number(e.target.value))} />
-        <div className="text-sm text-gray-500 mt-1 flex items-center justify-between">
-          <p>Est:  
-            <input 
-                type="text" 
-                className="input ml-1 w-[65px]" 
-                value={timeInputValue}
-                onChange={(e) => handleInputOnChangeEstimatedTime(e.target.value)}
-                onBlur={handleTimeInputBlur}
-                placeholder="HH:MM:SS or MM:SS or SS"
-              />
-          </p>
-          <p>
-            Act: {formatTime(task?.actualTime || 0)}
-          </p>
+      <div className="task-time-panel">
+        <div className="task-time-header">
+          <span className="task-time-label">
+            <MdTimer />
+            Estimate
+          </span>
+          <span className="task-time-actual">Actual {formatTime(task?.actualTime || 0)}</span>
         </div>
-
+        <input
+          type="range"
+          className="range task-time-range"
+          min="0"
+          max="86400"
+          step="300"
+          value={task?.estimatedTime}
+          onChange={(e) => handleTaskChange('estimatedTime', Number(e.target.value))}
+        />
+        <div className="task-time-controls">
+          <button type="button" className="btn btn-secondary task-time-step" onClick={() => adjustEstimatedTime(-300)}>
+            -5m
+          </button>
+          <input
+            type="text"
+            className="input task-time-input"
+            value={timeInputValue}
+            onChange={(e) => handleInputOnChangeEstimatedTime(e.target.value)}
+            onBlur={handleTimeInputBlur}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+            placeholder="HH:MM:SS"
+            aria-label="Estimated time"
+          />
+          <button type="button" className="btn btn-secondary task-time-step" onClick={() => adjustEstimatedTime(300)}>
+            +5m
+          </button>
+        </div>
       </div>
       <div className="px-2 mt-3 ">
         <button className="add-task flex items-center gap-2 btn btn-icon" onClick={() => {

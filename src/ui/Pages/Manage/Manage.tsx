@@ -69,9 +69,6 @@ const Manage = () => {
     <div className="manage-page">
       <div className="manage-header">
         <h1 className="text-2xl font-bold text-highlight">Manage TodoFlow</h1>
-        <button className="btn btn-secondary dashboard-month-button" onClick={fetchItems}>
-          Refresh
-        </button>
       </div>
 
       <div className="manage-toolbar card">

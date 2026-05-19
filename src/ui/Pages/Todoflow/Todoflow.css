@@ -1,0 +1,66 @@
+.todoflow-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.todoflow-header {
+  flex: 0 0 auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.todoflow-note-area {
+  min-width: 0;
+}
+
+.todoflow-progress-card {
+  flex: 0 0 auto;
+  padding: 0.85rem;
+}
+
+.todoflow-action-row,
+.todoflow-add-task {
+  flex: 0 0 auto;
+}
+
+.todoflow-task-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin-top: 0.75rem;
+  overflow-y: auto;
+  padding-bottom: 5.5rem;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) var(--bg-secondary);
+  -ms-overflow-style: auto;
+}
+
+.todoflow-task-list .card:first-child {
+  margin-top: 0;
+}
+
+@media (max-height: 720px) {
+  .todoflow-task-list {
+    min-height: 140px;
+  }
+}
+
+.todoflow-task-list::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+
+.todoflow-task-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 999px;
+}
+
+.todoflow-task-list::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border: 2px solid var(--bg-secondary);
+  border-radius: 999px;
+}

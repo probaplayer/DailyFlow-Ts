@@ -21,7 +21,7 @@ export interface AlertResult {
 }
 
 class AlertService {
-  private uiAlerts: Array<{ id: string; options: AlertOptions; onClose: () => void }> = [];
+  private uiAlerts: Array<{ id: string; options: AlertOptions; onClose: (result?: AlertResult) => void }> = [];
   private alertIdCounter = 0;
 
 
@@ -59,7 +59,7 @@ class AlertService {
     }
   }
 
-  showUIAlert(options: AlertOptions, onClose: () => void): string {
+  showUIAlert(options: AlertOptions, onClose: (result?: AlertResult) => void): string {
     const id = `alert-${++this.alertIdCounter}`;
     this.uiAlerts.push({ id, options, onClose });
     const event = new CustomEvent('ui-alert-show', {
@@ -130,6 +130,37 @@ class AlertService {
     });
   }
 
+  async askInApp(message: string, title = 'Question', buttons = ['OK', 'Cancel']): Promise<AlertResult> {
+    return new Promise((resolve) => {
+      const id = this.showUIAlert(
+        {
+          type: AlertType.QUESTION,
+          title,
+          message,
+          buttons,
+        },
+        (result) => {
+          resolve(result || { response: buttons.length - 1, checkboxChecked: false });
+        }
+      );
+
+      const handleQuestionResponse = (event: CustomEvent) => {
+        if (event.detail.id !== id) return;
+        window.removeEventListener('ui-alert-response', handleQuestionResponse as EventListener);
+        const alertIndex = this.uiAlerts.findIndex(alert => alert.id === id);
+        if (alertIndex !== -1) {
+          const alert = this.uiAlerts[alertIndex];
+          this.uiAlerts.splice(alertIndex, 1);
+          const result = { response: event.detail.response, checkboxChecked: false };
+          alert.onClose(result);
+          window.dispatchEvent(new CustomEvent('ui-alert-close', { detail: { id } }));
+        }
+      };
+
+      window.addEventListener('ui-alert-response', handleQuestionResponse as EventListener);
+    });
+  }
+
   async notify(title: string, body: string, icon?: string): Promise<boolean> {
     return this.showSystemNotification({ title, body, icon });
   }
@@ -149,5 +180,6 @@ export const {
   error,
   confirm,
   ask,
+  askInApp,
   notify
 } = alertService;

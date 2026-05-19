@@ -42,7 +42,7 @@ const InputHandler = () => {
             
             if (cmdOrCtrl && event.shiftKey && event.key === 'F') {
                 event.preventDefault();
-                if (todoFlow.timer) {
+                if (todoFlow.timer != null) {
                     dispatch(setTodoStatus(TodoStatus.START_ON_PROGRESS));
                 }
             }

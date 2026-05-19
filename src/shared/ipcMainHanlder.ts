@@ -18,6 +18,7 @@ import {
 import { IpcMainName } from '../enums/IpcMain.Name.enum.js';
 import { getIconPath } from '../pathResolver.js';
 import { requestAiProvider, type AiProviderRequest } from './aiProvider.js';
+import { splitExpiredAssignedTodos } from './todoCleanup.js';
 let store: any = new Store({ name: 'settings' });
 export const setupIpcMainHandlers = () => {
   ipcMain.handle(IpcMainName.SET_WINDOW_ALWAYS_ON_TOP, async (event, windowId: string, isAlwaysOnTop: boolean) => {
@@ -119,7 +120,12 @@ export const setupIpcMainHandlers = () => {
   });
 
   ipcMain.handle(IpcMainName.TODO_GET_ALL, async () => {
-    return await todoStore.getAll();
+    const allTodos = await todoStore.getAll();
+    const { activeTodos, expiredTodos } = splitExpiredAssignedTodos(allTodos);
+    if (expiredTodos.length > 0) {
+      await todoStore.writeAll({ items: activeTodos });
+    }
+    return activeTodos;
   });
 
   ipcMain.handle(IpcMainName.TODO_GET_BY_ID, async (event, id) => {
@@ -272,6 +278,17 @@ export const setupIpcMainHandlers = () => {
   ) => {
     const windowData = windows.get(windowType);
     if (windowData) {
+      const currentBounds = windowData.window.getBounds();
+      const isSameBounds =
+        currentBounds.width === targetWidth &&
+        currentBounds.height === targetHeight &&
+        currentBounds.x === targetPosition.x &&
+        currentBounds.y === targetPosition.y;
+
+      if (isSameBounds) {
+        return true;
+      }
+
       smoothResizeAndMove(
         windowData.window, 
         targetWidth, 

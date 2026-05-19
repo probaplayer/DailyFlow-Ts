@@ -128,9 +128,6 @@ const AiFlow = () => {
     <div className="ai-page">
       <div className="ai-header">
         <h1 className="text-2xl font-bold text-highlight">AI TodoFlow</h1>
-        <button className="btn btn-secondary dashboard-month-button" onClick={fetchItems}>
-          Refresh
-        </button>
       </div>
 
       <section className="ai-config card">

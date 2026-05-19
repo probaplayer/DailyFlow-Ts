@@ -172,6 +172,8 @@ const createScheduleEditorWindow = (payload: any = {}) => {
   }
   if (payload.todoId) params.set('todoId', payload.todoId);
   if (payload.taskId) params.set('taskId', payload.taskId);
+  if (payload.returnTo) params.set('returnTo', payload.returnTo);
+  if (payload.activeDateKey) params.set('activeDateKey', payload.activeDateKey);
 
   const win = new BrowserWindow({
     ...defaultWindowConfig,

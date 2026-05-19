@@ -199,8 +199,7 @@ export function buildMonthDays(monthDate: Date, today = new Date()): CalendarDay
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const firstOfMonth = new Date(year, month, 1);
-  const start = new Date(firstOfMonth);
-  start.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+  const start = getMonthCalendarGridStart(monthDate);
 
   const lastOfMonth = new Date(year, month + 1, 0);
   const end = new Date(lastOfMonth);
@@ -218,6 +217,36 @@ export function buildMonthDays(monthDate: Date, today = new Date()): CalendarDay
       dateKey,
       dayOfMonth: date.getDate(),
       isCurrentMonth: date.getMonth() === month,
+      isToday: dateKey === todayKey,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+export function getMonthCalendarGridStart(monthDate: Date): Date {
+  const firstOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const start = new Date(firstOfMonth);
+  start.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+  return start;
+}
+
+export function buildCalendarWindowDays(startDate: Date, today = new Date()): CalendarDay[] {
+  const start = new Date(startDate);
+  start.setDate(start.getDate() - start.getDay());
+  const todayKey = toDateKey(today);
+  const days: CalendarDay[] = [];
+  const cursor = new Date(start);
+
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(cursor);
+    const dateKey = toDateKey(date);
+    days.push({
+      date,
+      dateKey,
+      dayOfMonth: date.getDate(),
+      isCurrentMonth: true,
       isToday: dateKey === todayKey,
     });
     cursor.setDate(cursor.getDate() + 1);
@@ -554,6 +583,46 @@ function secondsFromMidnightToTimeString(totalSeconds: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function distributeSecondsByCurrentWeights(totalSeconds: number, taskIds: string[], tasks: Record<string, Task>): Record<string, number> {
+  const safeTotal = Math.max(0, Math.floor(totalSeconds));
+  if (taskIds.length === 0) {
+    return {};
+  }
+
+  const currentTotal = taskIds.reduce((total, taskId) => total + Math.max(0, tasks[taskId]?.estimatedTime || 0), 0);
+  if (currentTotal <= 0) {
+    const baseDuration = Math.floor(safeTotal / taskIds.length);
+    let remainder = safeTotal - baseDuration * taskIds.length;
+    return Object.fromEntries(
+      taskIds.map((taskId) => {
+        const estimatedTime = baseDuration + (remainder > 0 ? 1 : 0);
+        remainder = Math.max(0, remainder - 1);
+        return [taskId, estimatedTime];
+      })
+    );
+  }
+
+  const weighted = taskIds.map((taskId, index) => {
+    const exact = (Math.max(0, tasks[taskId]?.estimatedTime || 0) / currentTotal) * safeTotal;
+    return {
+      taskId,
+      index,
+      estimatedTime: Math.floor(exact),
+      fraction: exact - Math.floor(exact),
+    };
+  });
+  let remainder = safeTotal - weighted.reduce((total, item) => total + item.estimatedTime, 0);
+  weighted
+    .sort((a, b) => b.fraction - a.fraction || a.index - b.index)
+    .forEach((item) => {
+      if (remainder <= 0) return;
+      item.estimatedTime += 1;
+      remainder -= 1;
+    });
+
+  return Object.fromEntries(weighted.map((item) => [item.taskId, item.estimatedTime]));
+}
+
 export function moveScheduleSlotPreservingDuration(
   slot: ScheduleSlot,
   dateKey: string,
@@ -635,6 +704,116 @@ export function getTodoTaskEstimatedSeconds(todo: TodoFlow): number {
   }, 0);
 }
 
+export function redistributeTaskEstimateWithinTodo(
+  todo: TodoFlow,
+  taskId: string,
+  nextEstimatedSeconds: number
+): TodoFlow {
+  const task = todo.tasks[taskId];
+  if (!task || task.isTaskBreak) {
+    return todo;
+  }
+
+  const nonBreakTaskIds = todo.taskIds.filter((id) => {
+    const item = todo.tasks[id];
+    return item && !item.isTaskBreak;
+  });
+  const otherTaskIds = nonBreakTaskIds.filter((id) => id !== taskId);
+  const currentTaskTotal = getTodoTaskEstimatedSeconds(todo);
+  const todoTotal = Math.max(0, Math.floor(todo.estimatedTimeTodo || currentTaskTotal));
+  const hasFixedTotal = todoTotal > 0;
+  const safeNext = Math.max(0, Math.floor(nextEstimatedSeconds));
+  const nextTotal = hasFixedTotal ? todoTotal : safeNext + currentTaskTotal - Math.max(0, task.estimatedTime || 0);
+  const targetEstimate = Math.min(safeNext, nextTotal);
+  const remainingEstimate = Math.max(0, nextTotal - targetEstimate);
+  const distributedOtherEstimates = distributeSecondsByCurrentWeights(remainingEstimate, otherTaskIds, todo.tasks);
+  const tasks = {
+    ...todo.tasks,
+    [taskId]: {
+      ...task,
+      estimatedTime: targetEstimate,
+    },
+  };
+
+  for (const id of otherTaskIds) {
+    tasks[id] = {
+      ...tasks[id],
+      estimatedTime: distributedOtherEstimates[id] || 0,
+    };
+  }
+
+  return {
+    ...todo,
+    tasks,
+    taskTotal: nonBreakTaskIds.length,
+    estimatedTimeTodo: nextTotal,
+  };
+}
+
+export type ResizeTodoFlowScheduleDurationResult =
+  | { ok: true; todo: TodoFlow }
+  | { ok: false; reason: string };
+
+export function resizeTodoFlowScheduleDuration(
+  todo: TodoFlow,
+  nextTotalSeconds: number,
+  otherTodos: TodoFlow[] = []
+): ResizeTodoFlowScheduleDurationResult {
+  const safeNextTotal = Math.max(0, Math.floor(nextTotalSeconds));
+  const slots = todo.scheduleSlots || [];
+  if (slots.length === 0) {
+    return {
+      ok: true,
+      todo: {
+        ...todo,
+        estimatedTimeTodo: safeNextTotal,
+      },
+    };
+  }
+
+  const currentTotal = getScheduleSlotsDurationSeconds(slots) || 0;
+  if (safeNextTotal < currentTotal) {
+    return { ok: false, reason: 'TodoFlow total time can only be extended' };
+  }
+
+  const deltaSeconds = safeNextTotal - currentTotal;
+  const sortedSlots = [...slots].sort((a, b) => `${a.dateKey}T${a.startTime}`.localeCompare(`${b.dateKey}T${b.startTime}`));
+  const lastSlot = sortedSlots[sortedSlots.length - 1];
+  const lastSlotStart = parseTimeString(lastSlot.startTime);
+  const lastSlotDuration = secondsBetweenTimeStrings(lastSlot.startTime, lastSlot.endTime);
+  const nextLastSlot: ScheduleSlot = {
+    ...lastSlot,
+    endTime: secondsFromMidnightToTimeString(lastSlotStart + lastSlotDuration + deltaSeconds),
+  };
+
+  if (parseTimeString(nextLastSlot.endTime) - lastSlotStart !== lastSlotDuration + deltaSeconds) {
+    return { ok: false, reason: 'TodoFlow total time cannot pass midnight' };
+  }
+
+  const otherSlots = otherTodos
+    .filter((item) => item.id !== todo.id)
+    .flatMap((item) => item.scheduleSlots || []);
+  if (hasOverlappingScheduleSlot(nextLastSlot, otherSlots)) {
+    return { ok: false, reason: 'This total time overlaps with another TodoFlow' };
+  }
+
+  const scheduleSlots = slots.map((slot) =>
+    slot.dateKey === lastSlot.dateKey && slot.startTime === lastSlot.startTime && slot.endTime === lastSlot.endTime
+      ? nextLastSlot
+      : slot
+  );
+
+  return {
+    ok: true,
+    todo: {
+      ...todo,
+      scheduleSlots,
+      estimatedTimeTodo: safeNextTotal,
+      lastNotifiedDate: undefined,
+    },
+  };
+}
+
 export function hasTodoFlowStarted(todo: TodoFlow): boolean {
   const hasTaskProgress = todo.taskIds.some((taskId) => {
     const task = todo.tasks[taskId];
@@ -654,6 +833,11 @@ export function hasTodoFlowStarted(todo: TodoFlow): boolean {
     todo.status !== TodoStatus.STOP;
 
   return hasTodoProgress || hasTaskProgress;
+}
+
+export function canResumeTodoFlowEntry(todo: TodoFlow): boolean {
+  const currentTask = todo.currentTaskId ? todo.tasks[todo.currentTaskId] : undefined;
+  return Boolean(currentTask && currentTask.status !== TaskStatus.COMPLETED);
 }
 
 export function getTodoFlowLaunchLabel(todo: TodoFlow): 'Start' | 'Resume' {

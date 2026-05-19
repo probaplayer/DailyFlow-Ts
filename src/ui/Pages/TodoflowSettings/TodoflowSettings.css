@@ -1,0 +1,152 @@
+.todoflow-settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) var(--bg-secondary);
+}
+
+.todoflow-settings-page::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+
+.todoflow-settings-page::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 999px;
+}
+
+.todoflow-settings-page::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border: 2px solid var(--bg-secondary);
+  border-radius: 999px;
+}
+
+.todoflow-settings-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.todoflow-settings-title {
+  min-width: 0;
+}
+
+.todoflow-settings-title h1 {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.todoflow-settings-title p {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoflow-settings-section {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  padding: 12px;
+  flex: 0 0 auto;
+}
+
+.todoflow-settings-section h2 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.todoflow-settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.todoflow-settings-section-title h2 {
+  margin: 0;
+}
+
+.todoflow-settings-slots {
+  margin-top: 8px;
+}
+
+.todoflow-settings-action {
+  width: 100%;
+  height: 34px;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.todoflow-settings-detach {
+  border-color: color-mix(in srgb, var(--accent-primary) 55%, var(--border-color));
+}
+
+.todoflow-settings-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.todoflow-settings-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.todoflow-settings-time-input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.todoflow-settings-error {
+  margin-top: 8px;
+  color: #ef4444;
+  font-size: 0.8rem;
+}
+
+.todoflow-settings-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.todoflow-settings-summary strong {
+  color: var(--text-primary);
+}
+
+.todoflow-settings-save {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 38px;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .todoflow-settings-time-grid {
+    grid-template-columns: 1fr;
+  }
+}
