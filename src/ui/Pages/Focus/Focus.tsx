@@ -71,7 +71,9 @@ const Focus = () => {
           dispatch(setCurrentTaskId(firstTaskId));
         }
       }
-      startTimer();
+      if (todo.timer == null) {
+        startTimer();
+      }
     }
 
     getHeadTask();
@@ -209,6 +211,7 @@ const Focus = () => {
         soundPlayer.play(SoundType.SOUND_SHINDERU);
       else
         soundPlayer.play(SoundType.SOUND_BOCCHI);
+      dispatch(setStopTimer());
       dispatch(setTaskStatus(TaskStatus.COMPLETED));
       dispatch(setTodoStatus(TodoStatus.STOP));
     }

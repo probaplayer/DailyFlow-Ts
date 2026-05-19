@@ -185,6 +185,10 @@ const todoflowSlice = createSlice({
             state.tasks[taskId].actualTime = 0;
           });
           state.taskCompleted = 0;
+        } else if (!state.currentTaskId || state.tasks[state.currentTaskId]?.status === TaskStatus.COMPLETED) {
+          const nextTaskId = state.taskIds.find((taskId) => state.tasks[taskId]?.status !== TaskStatus.COMPLETED);
+          state.currentTaskId = nextTaskId;
+          state.timeLeft = nextTaskId ? state.tasks[nextTaskId]?.actualTime || 0 : 0;
         }
       }
     },

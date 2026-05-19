@@ -94,7 +94,12 @@ const Todoflow = () => {
           await window.electronAPI.setWindowAlwaysOnTop('main', true);
           return;
         }
-        if (todoFlow.status === TodoStatus.START_ON_TODO && todoFlow.currentTaskId && todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS) {
+        if (
+          todoFlow.status === TodoStatus.START_ON_TODO &&
+          todoFlow.timer == null &&
+          todoFlow.currentTaskId &&
+          todoFlow.tasks[todoFlow.currentTaskId]?.status === TaskStatus.IN_PROGRESS
+        ) {
           dispatch(setStartTimer(setInterval(() => {
              dispatch(setTimeLeft(undefined));
           }, 1000)));
@@ -107,9 +112,6 @@ const Todoflow = () => {
       }
     }
     fetchAndInitialize();
-    return () => {
-      dispatch(setStopTimer());
-    }
   }, []);
 
   useEffect(() => {
@@ -476,12 +478,8 @@ const Todoflow = () => {
             onDoneTask={() => {
               if (todoFlow.currentTaskId) {
                 const currentTask = todoFlow.tasks[todoFlow.currentTaskId];
-                if (currentTask.isTaskBreak) {
-                  soundPlayer.play(SoundType.SOUND_SHINDERU);
-                  dispatch(setStopTimer());
-                } else {
-                  soundPlayer.play(SoundType.SOUND_BOCCHI);
-                }
+                dispatch(setStopTimer());
+                soundPlayer.play(currentTask.isTaskBreak ? SoundType.SOUND_SHINDERU : SoundType.SOUND_BOCCHI);
                 dispatch(setTaskStatus(TaskStatus.COMPLETED));
                 dispatch(setTodoStatus(TodoStatus.STOP));
               }

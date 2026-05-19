@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import todoReducer, { setStartTimer, setStopTimer, setTimeLeft } from './todoSlice';
+import todoReducer, { setChangeCurrentTask, setStartTimer, setStopTimer, setTimeLeft, setTodoStatus } from './todoSlice';
 import { TaskStatus } from '~/enums/TaskStatus.Type.enum';
 import { TodoStatus } from '~/enums/TodoStatus.Type.enum';
 
@@ -25,6 +25,41 @@ const buildRunningTodo = (): TodoFlow => ({
   currentTaskId: 'task-1',
   timeLeft: 7,
   timer: null,
+});
+
+const buildTodoWithMixedTasks = (): TodoFlow => ({
+  ...buildRunningTodo(),
+  taskTotal: 3,
+  taskCompleted: 1,
+  taskIds: ['done-task', 'task-1', 'task-2'],
+  tasks: {
+    'done-task': {
+      id: 'done-task',
+      title: 'Done task',
+      estimatedTime: 30,
+      actualTime: 30,
+      subTasks: [],
+      status: TaskStatus.COMPLETED,
+    },
+    'task-1': {
+      id: 'task-1',
+      title: 'Task 1',
+      estimatedTime: 60,
+      actualTime: 7,
+      subTasks: [],
+      status: TaskStatus.NOT_STARTED,
+    },
+    'task-2': {
+      id: 'task-2',
+      title: 'Task 2',
+      estimatedTime: 90,
+      actualTime: 0,
+      subTasks: [],
+      status: TaskStatus.NOT_STARTED,
+    },
+  },
+  currentTaskId: undefined,
+  timeLeft: 0,
 });
 
 describe('todoSlice timer ticks', () => {
@@ -63,6 +98,28 @@ describe('todoSlice timer ticks', () => {
     const next = todoReducer(started, setStopTimer());
 
     expect(next.timer).toBeNull();
+    expect(next.tasks['task-1'].status).toBe(TaskStatus.PAUSED);
+  });
+
+  it('selects the first unfinished task when starting progress without a current task', () => {
+    const next = todoReducer(buildTodoWithMixedTasks(), setTodoStatus(TodoStatus.START_ON_PROGRESS));
+
+    expect(next.currentTaskId).toBe('task-1');
+    expect(next.timeLeft).toBe(7);
+    expect(next.tasks['done-task'].status).toBe(TaskStatus.COMPLETED);
+  });
+
+  it('switches only between unfinished tasks without reselecting completed tasks', () => {
+    const started = {
+      ...buildTodoWithMixedTasks(),
+      currentTaskId: 'task-1',
+      timeLeft: 7,
+    };
+
+    const next = todoReducer(started, setChangeCurrentTask({ isNext: true, status: TaskStatus.PAUSED }));
+
+    expect(next.currentTaskId).toBe('task-2');
+    expect(next.tasks['done-task'].status).toBe(TaskStatus.COMPLETED);
     expect(next.tasks['task-1'].status).toBe(TaskStatus.PAUSED);
   });
 });
