@@ -9,6 +9,7 @@ import { formatTime, generateId, parseTime } from "~/ui/helpers/utils/utils";
 import { useAppSelector, useAppDispatch } from "~/ui/store/hooks";
 import { insertNewTaskAtCurrentPosition, removeTask, reorderTasks, updateTask } from "~/ui/store/todo/todoSlice";
 import { CgInsertAfterR, CgInsertBeforeR } from "react-icons/cg";
+import './Task.css';
 
 
 interface TaskProps {

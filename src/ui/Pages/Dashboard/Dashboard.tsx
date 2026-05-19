@@ -62,6 +62,7 @@ const Dashboard = () => {
   const dayMenuRef = useRef<HTMLDivElement | null>(null);
   const calendarLayoutRef = useRef<HTMLDivElement | null>(null);
   const calendarMainRef = useRef<HTMLElement | null>(null);
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const lastWheelMonthSwitchRef = useRef(0);
   const lastDragMonthSwitchRef = useRef(0);
   const [todos, setTodos] = useState<TodoFlow[]>([]);
@@ -302,6 +303,14 @@ const Dashboard = () => {
       ? `${selectedDateCount} selected days`
       : selectedDateKeys[0] || selectedDateKey;
 
+  const openDatePicker = () => {
+    try {
+      datePickerRef.current?.showPicker?.();
+    } catch {
+      // Some Chromium paths only allow showPicker during a direct pointer gesture.
+    }
+  };
+
   const renderSlotSummary = (slots: ScheduleSlot[]) => {
     if (slots.length === 0) {
       return <p className="dashboard-empty">No time slot selected.</p>;
@@ -329,22 +338,25 @@ const Dashboard = () => {
         <h1 className="text-2xl font-bold text-highlight">Dashboard</h1>
         <div className="dashboard-month-controls">
           <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleRows(-1)}>
-            Prev row
+            Prev
           </button>
           <button className="btn btn-secondary dashboard-month-button" onClick={focusToday}>
             Today
           </button>
           <input
+            ref={datePickerRef}
             className="input input-primary dashboard-date-picker"
             type="date"
             min={todayDateKey}
             value={pickerDateKey}
             aria-label="Select dashboard date"
             title={dominantMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            onClick={openDatePicker}
+            onFocus={openDatePicker}
             onChange={(event) => selectDateFromPicker(event.target.value)}
           />
           <button className="btn btn-secondary dashboard-month-button" onClick={() => moveVisibleRows(1)}>
-            Next row
+            Next
           </button>
         </div>
       </div>

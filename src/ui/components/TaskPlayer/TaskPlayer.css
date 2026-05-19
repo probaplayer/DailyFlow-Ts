@@ -1,57 +1,175 @@
-@keyframes bounceInDownMiddle {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -100%) scale(0.8);
-  }
-  60% {
-    opacity: 1;
-    transform: translate(-50%, 10%) scale(1.05);
-  }
-  80% {
-    transform: translate(-50%, -5%) scale(0.98);
-  }
-  100% {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
+.task-player-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
 }
 
-.alert {
-  position: fixed;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--card-bg);
-  color: var(--text-primary);
-  padding: 14px 22px;
-  border-radius: 10px;
-  box-shadow: 0px 6px 16px var(--shadow-color);
-  font-size: 15px;
-  font-weight: 500;
-  z-index: 1000;
-  animation: bounceInDownMiddle 0.8s cubic-bezier(.68,-0.55,.27,1.55);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+.task-player-title-area {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.task-player-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 22px;
+  margin-bottom: 5px;
+  padding: 0 8px;
   border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
-/* Types */
-.alert-success {
-  border-left: 6px solid #38a169; /* green */
+.task-player-status-running {
+  border-color: color-mix(in srgb, #38a169 50%, var(--border-color));
+  color: #38a169;
 }
 
-.alert-error {
-  border-left: 6px solid #e53e3e; /* red */
+.task-player-status-paused {
+  border-color: color-mix(in srgb, var(--accent-primary) 50%, var(--border-color));
+  color: var(--accent-primary);
 }
 
-.alert-warning {
-  border-left: 6px solid #dd6b20; /* orange */
+.task-player-status-done {
+  margin-bottom: 0;
+  border-color: color-mix(in srgb, #38a169 50%, var(--border-color));
+  color: #38a169;
 }
 
-.alert-info {
-  border-left: 6px solid var(--accent-primary); /* blue/purple */
+.task-player-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
-.alert.fade-out {
-  opacity: 0;
-  transform: translate(-50%, -20%) scale(0.9);
+.task-player-time {
+  min-width: 92px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  text-align: right;
+}
+
+.task-player-time span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.task-player-time strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.task-player-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.task-player-icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.task-player-done-btn {
+  min-width: 58px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+}
+
+.task-player-card-completed {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "copy image"
+    "actions image";
+  gap: 10px 14px;
+}
+
+.task-player-completed-copy {
+  grid-area: copy;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-player-completed-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-decoration: line-through;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-player-completed-image {
+  grid-area: image;
+  width: 112px;
+  height: 92px;
+  object-fit: contain;
+}
+
+.task-player-completed-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .task-player-card {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .task-player-time {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .task-player-time strong {
+    margin-top: 0;
+  }
+
+  .task-player-actions,
+  .task-player-completed-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .task-player-card-completed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "image"
+      "actions";
+  }
+
+  .task-player-completed-image {
+    width: 100%;
+    max-height: 150px;
+  }
 }

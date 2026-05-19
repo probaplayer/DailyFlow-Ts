@@ -25,6 +25,19 @@
   min-height: 30px;
   padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
+  color-scheme: dark;
+}
+
+.light-theme .dashboard-date-picker {
+  color-scheme: light;
+}
+
+.dashboard-date-picker::-webkit-calendar-picker-indicator {
+  display: block;
+  width: 18px;
+  height: 18px;
+  opacity: 1;
+  cursor: inherit;
 }
 
 .dashboard-calendar-layout {

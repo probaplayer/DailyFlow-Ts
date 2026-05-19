@@ -7,6 +7,7 @@ import { LuGamepad2 } from "react-icons/lu";
 import { TaskStatus } from '~/enums/TaskStatus.Type.enum';
 import myGif from '~/ui/assets/BocchiKitaGIF.gif';
 import myGif2 from '~/ui/assets/BocchiKitaGIF2.gif';
+import './TaskPlayer.css';
 
 interface TaskPlayerProps {
   task: Task;
@@ -34,7 +35,6 @@ const TaskPlayer = ({
   const textContainerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const [isTitleHovered, setIsTitleHovered] = useState(false);
-  const [isTimeHovered, setIsTimeHovered] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
 
   useEffect(() => {
@@ -55,18 +55,22 @@ const TaskPlayer = ({
 
   const isCompleted = task.status === TaskStatus.COMPLETED;
   const isPaused = isTimer;
+  const statusLabel = task.isTaskBreak ? 'Break' : (isPaused ? 'Paused' : 'Running');
 
   if (isCompleted) {
     return (
-      <div className="card primary flex flex-col gap-3 justify-center items-center mt-3" style={{ padding: '1rem 1.5rem' }}>
-        <p className='font-bold'>Congratulations! You've completed the task.</p>
+      <div className="task-player-card task-player-card-completed card primary mt-3">
+        <div className="task-player-completed-copy">
+          <span className="task-player-status task-player-status-done">Completed</span>
+          <p className='font-bold'>Congratulations! You've completed the task.</p>
+          <p className='task-player-completed-title'>{task.title}</p>
+        </div>
         <img 
           src={task.isTaskBreak ? myGif2 : myGif } 
           alt="Task completed" 
-          className="w-100 h-70 object-contain"
+          className="task-player-completed-image"
         />
-        <p className='font-bold line-through'>{task.title}</p>
-        <div className='flex flex-col gap-2 items-center'>
+        <div className='task-player-completed-actions'>
           <button className="btn btn-primary !p-2" onClick={onDoneAndNextTask}>
             {isDoneTodo ? 'All Done!' : 'Next Task'}
           </button>
@@ -82,71 +86,57 @@ const TaskPlayer = ({
   }
 
   return (
-    <div className="card primary flex gap-2 justify-between items-center mt-3" style={{ padding: '0.5rem 1.5rem' }}>
+    <div className="task-player-card card primary mt-3">
       <div 
-        className="w-1 flex-5 overflow-hidden whitespace-nowrap" 
+        className="task-player-title-area" 
         ref={textContainerRef}
         onMouseEnter={() => setIsTitleHovered(true)}
         onMouseLeave={() => setIsTitleHovered(false)}
       >
+        <span className={`task-player-status ${isPaused ? 'task-player-status-paused' : 'task-player-status-running'}`}>
+          {statusLabel}
+        </span>
         <div
           ref={textRef}
-          className={shouldAnimate && isTitleHovered ? 'animate-marquee' : 'truncate'}
+          className={`task-player-title ${shouldAnimate && isTitleHovered ? 'animate-marquee' : 'truncate'}`}
         >
           {task.title}
         </div>
       </div>
 
-      <div 
-        className="flex-1 flex items-center h-full"
-        onMouseEnter={() => setIsTimeHovered(true)}
-        onMouseLeave={() => setIsTimeHovered(false)}
-      >
-        {!isTimeHovered ? (
-          <span className="font-bold">{formatTime(task.actualTime)}</span>
-        ) : (
-          <div className="flex gap-1 justify-between items-center w-full">
-            <button 
-              className="btn btn-primary h-[10px] w-[1px] text-sm" 
-              onClick={onDoneTask}
-            >
-              Done!
-            </button>
-            
-            {!task.isTaskBreak && (
-              <button className='btn btn-icon animate-pop'
-                onClick={handlePreviousTask}
-              >
-                <BiSkipPrevious />
-              </button>
-            )}
-            
-            {isPaused && !task.isTaskBreak && (
-              <button className='btn btn-icon animate-pop'
-                onClick={onStartTask} 
-              >
-                <FaPlay />
-              </button>
-            )}
+      <div className="task-player-time">
+        <span>Time left</span>
+        <strong>{formatTime(task.actualTime)}</strong>
+      </div>
 
-            {!isPaused && !task.isTaskBreak && (
-              <button className='btn btn-icon animate-pop'
-                onClick={onPauseTask}
-              >
-                <FaPause />
-              </button>
-            )}
-
-            {!task.isTaskBreak && (
-              <button className='btn btn-icon animate-pop'
-                onClick={handleNextTask}
-              >
-                <MdSkipNext />
-              </button>
-            )}
-     
-          </div>
+      <div className="task-player-actions" aria-label="Task actions">
+        {!task.isTaskBreak && (
+          <button className='btn btn-icon task-player-icon-btn' onClick={handlePreviousTask} title="Previous task">
+            <BiSkipPrevious />
+          </button>
         )}
+
+        {isPaused && !task.isTaskBreak && (
+          <button className='btn btn-icon task-player-icon-btn' onClick={onStartTask} title="Resume task">
+            <FaPlay />
+          </button>
+        )}
+
+        {!isPaused && !task.isTaskBreak && (
+          <button className='btn btn-icon task-player-icon-btn' onClick={onPauseTask} title="Pause task">
+            <FaPause />
+          </button>
+        )}
+
+        {!task.isTaskBreak && (
+          <button className='btn btn-icon task-player-icon-btn' onClick={handleNextTask} title="Next task">
+            <MdSkipNext />
+          </button>
+        )}
+
+        <button className="btn btn-primary task-player-done-btn" onClick={onDoneTask}>
+          Done
+        </button>
       </div>
     </div>
   );
