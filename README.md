@@ -1,120 +1,115 @@
 # DailyFlow-Ts
 
-## 📖 About
+DailyFlow-Ts is a desktop productivity app built with Electron, React, TypeScript, Vite, and Redux Toolkit. It helps you plan TodoFlows on a calendar, break work into tasks, run a compact focus timer, review progress, and optionally use AI providers to analyze or draft TodoFlows.
 
-DailyFlow-Ts is a powerful, cross-platform desktop application built with Electron, React, and TypeScript. It helps you organize your daily tasks with intelligent time tracking, ensuring you stay productive and focused throughout your day.
+## Features
 
-## ✨ Features
+- Calendar dashboard for scheduling TodoFlows across one or multiple days.
+- Timeline schedule editor with drag selection, resizing, overlap checks, and auto-fit behavior.
+- TodoFlow and standalone task management with search and status filters.
+- Focus mode with a compact always-on-top timer, task navigation, subtasks, pause/resume, and completion controls.
+- Analytics for TodoFlow counts, scheduled days, completion rate, planned time, and actual time.
+- AI TodoFlow page with OpenAI, Anthropic, and Gemini provider support.
+- Local-first persistence through Electron IPC, JSON-backed task/todo stores, and `electron-store` settings.
+- Desktop settings for startup behavior, break duration, sounds, volume, theme, and data reset.
+- System notifications, custom sounds, light/dark theme, and Electron window resizing utilities.
 
-- **⏰ Smart Time Tracking** - Automatic duration tracking and time estimation
-- **📋 Task Management** - Create, organize, and prioritize tasks effortlessly
-- **💾 Local Storage** - Your data stays private on your device
+## Tech Stack
 
-## 🚀 Installation
-### Prerequisites
+- Electron 42 for the desktop shell, main process, preload bridge, notifications, and window controls.
+- React 18 and React Router 7 for the renderer UI.
+- TypeScript with strict project settings.
+- Redux Toolkit and React Redux for active TodoFlow state.
+- Vite 7 with Tailwind CSS 4.
+- Vitest for unit tests.
+- Electron Builder for platform packaging.
 
-- Node.js 18+ and npm/yarn/pnpm
+## Project Structure
+
+```text
+DailyFlow-Ts/
+├─ src/
+│  ├─ electron/          # Electron main process, preload, and Electron tsconfig
+│  ├─ shared/            # IPC handlers, JSON stores, AI provider bridge, window utilities
+│  ├─ enums/             # Shared app enums
+│  └─ ui/
+│     ├─ Pages/          # Dashboard, Manage, Analytics, AI, Focus, Settings, ScheduleEditor
+│     ├─ components/     # Reusable renderer components
+│     ├─ helpers/        # Hooks, services, schedule utilities, UI helpers
+│     ├─ layouts/        # App shell and navigation layout
+│     ├─ store/          # Redux store and TodoFlow slice
+│     └─ assets/         # Renderer sounds, cursors, and images
+├─ localdata/            # Development/sample JSON data
+├─ docs/                 # Project specs and implementation plans
+├─ dist-electron/        # Compiled Electron output
+└─ dist-react/           # Built renderer output
+```
+
+## Requirements
+
+- Node.js 18 or newer
+- npm
 - Git
 
-### Download
-
-**Option 1: Download Pre-built Release**
-
-Visit the [Releases](https://github.com/ngocanh0202/dailyflow-ts/releases) page and download the installer for your platform:
-- Windows: `.exe` installer
-- macOS: `.dmg` or `.app`
-- Linux: `.AppImage`, `.deb`, or `.rpm`
-
-**Option 2: Build from Source**
+## Getting Started
 
 ```bash
-# Clone the repository
 git clone https://github.com/ngocanh0202/DailyFlow-Ts.git
-
-# Navigate to project directory
-cd dailyflow-ts
-
-# Install dependencies
+cd DailyFlow-Ts
 npm install
-# or
-yarn install
-# or
-pnpm install
-
-# Run in development mode
 npm run dev
+```
 
-# Build production
-npm run transpile:electron
+`npm run dev` starts the Vite renderer and Electron app together.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Run Vite and Electron together for local desktop development. |
+| `npm run dev:react` | Run only the Vite renderer dev server on `127.0.0.1:5123`. |
+| `npm run dev:electron` | Compile Electron TypeScript and launch Electron in development mode. |
+| `npm run transpile:electron` | Compile Electron main/preload TypeScript with `src/electron/tsconfig.json`. |
+| `npm run build` | Type-check with `tsc` and build the renderer with Vite. |
+| `npm run preview` | Preview the built renderer with Vite. |
+| `npm run test:unit` | Run Vitest unit tests under `src`. |
+| `npm run dist:win` | Build a Windows x64 package with Electron Builder. |
+| `npm run dist:mac` | Build a macOS arm64 package with Electron Builder. |
+| `npm run dist:linux` | Build a Linux x64 package with Electron Builder. |
+
+## Development Notes
+
+- The renderer uses the `~/*` alias for imports from `src/*`.
+- Keep Electron-only APIs behind preload, `src/shared`, or IPC utilities.
+- Local tasks and TodoFlows are persisted through JSON-backed stores initialized by the Electron main process.
+- App settings are stored with `electron-store` and mirrored where needed in renderer local storage.
+- AI requests are sent from the main process through `src/shared/aiProvider.ts`; API keys are entered in the app UI.
+- Run `npm run build` before packaging or opening a pull request.
+
+## Testing
+
+```bash
+npm run test:unit
 npm run build
-npm run dist:win    # build windows
-npm run dist:mac    # build macOS
 ```
 
-## 💻 Usage
+Current focused tests cover schedule utilities, page resize state, TodoFlow store behavior, AI provider handling, and todo cleanup logic.
 
-### Quick Start
+## Packaging
 
-1. **Create a Task**: Click the "+" button to add a new task
-2. **Set Time**: Assign estimated duration and priority
-3. **Track Progress**: Start the timer when working on a task
-4. **Review Analytics**: Check your productivity stats in the dashboard
-
-### Keyboard Shortcuts
-
-| Action | Shortcut (Win/Linux) | Shortcut (macOS) |
-|--------|---------------------|------------------|
-| New Task | `Ctrl + N` | `Cmd + N` |
-| Toggle Theme | `Ctrl + T` | `Cmd + T` |
-| Focus Mode | `Ctrl + Shift + F` | `Cmd + Shift + F` |
-| Settings | `Ctrl + ,` | `Cmd + ,` |
-
-## 🛠️ Development
-
-### Tech Stack
-
-- **Frontend**: React, TypeScript
-- **Desktop**: Electron
-- **Styling**: Tailwind CSS / CSS Modules
-- **State Management**: React Context / Redux
-- **Build Tool**: Vite
-
-### Project Structure
-
-```
-dailyflow-ts/
-├──dist-electron        # Compiler from  src/electron
-├── src/
-│   ├── electron/       # Electron main process and Electron preload scripts
-│   ├── ui/             # React app
-│   │   ├── components/
-│   │   ├── helpers/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   └── store/
-└── types.d.ts          # Interface Electron preload scripts
+```bash
+npm run dist:win
+npm run dist:mac
+npm run dist:linux
 ```
 
-## 🐛 Bug Reports & Feature Requests
+Platform installers and build artifacts are generated by Electron Builder. Do not commit generated build outputs.
 
-Found a bug or have a feature idea? Please open an issue on our [GitHub Issues](https://github.com/ngocanh0202/DailyFlow-Ts.git/issues) page.
+## Author
 
+Ngoc Anh
 
-## 👥 Authors
-
-- **Ngoc Anh** - *Initial work* - [@ngocanh0202](https://github.com/ngocanh0202)
-
-## 📧 Contact
-
-- Website: [MyPortfolio](https://ngocanh0202.github.io/MyPortfolio/)
+- GitHub: [@ngocanh0202](https://github.com/ngocanh0202)
+- Portfolio: [MyPortfolio](https://ngocanh0202.github.io/MyPortfolio/)
 - Email: buihuynhngocanh2020@gmail.com
 
----
-
-<div align="center">
-
-**⭐ If you find this project helpful, please consider giving it a star!**
-
-Made with ❤️ and TypeScript
-
-</div>
